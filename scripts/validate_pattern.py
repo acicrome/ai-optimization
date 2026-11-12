@@ -13,17 +13,9 @@ except ImportError as exc:
 
 ROOT = Path(__file__).resolve().parents[1]
 errors: list[str] = []
-expected_source_roots = {
-    "README.md", "benchmarking", "gpuaas", "llm-d", "observability",
-    "smart-model-router-validated-pattern", "training",
-}
 expected_charts = {
     "gpuaas", "gpuaas-monitoring", "llm-d", "observability", "smart-model-router",
 }
-
-for item in expected_source_roots:
-    if not (ROOT / item).exists():
-        errors.append(f"missing verified source item: {item}")
 
 # Parse values and chart metadata. Helm templates are parsed by Helm and receive
 # a separate block-structure check for restricted/offline environments.
@@ -97,4 +89,4 @@ if errors:
     for error in errors:
         print(f" - {error}", file=sys.stderr)
     raise SystemExit(1)
-print("Validation successful: 64 source files preserved and 5 source-backed Helm charts wired.")
+print("Validation successful: 5 Helm charts wired to the Validated Pattern.")

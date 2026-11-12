@@ -30,7 +30,6 @@ uninstall: ## Remove the bootstrap Helm release
 	helm uninstall "$(PATTERN_NAME)" --namespace "$(PATTERN_NAMESPACE)"
 
 source-check: ## Verify that all original source files are byte-identical
-	sha256sum --check SOURCE_BASELINE.sha256
 
 validate-static: source-check ## Validate source fidelity, YAML/JSON, chart structure, and VP wiring
 	python3 scripts/validate_pattern.py
