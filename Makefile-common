@@ -1,0 +1,56 @@
+SHELL := /usr/bin/env bash
+
+PATTERN_NAME ?= ai-optimization
+PATTERN_NAMESPACE ?= openshift-operators
+PATTERN_CHART_REPO ?= https://charts.validatedpatterns.io
+PATTERN_INSTALL_CHART ?= validated-patterns/pattern-install
+TARGET_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+TARGET_ORIGIN ?= $(shell git remote get-url origin 2>/dev/null || echo https://github.com/acicfede/ai-optimization.git)
+
+.PHONY: help install operator-deploy uninstall validate render source-check patternizer-refresh
+
+help: ## Display available targets
+	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+install: operator-deploy ## Install or update the Validated Pattern
+	@echo "Pattern $(PATTERN_NAME) submitted from $(TARGET_ORIGIN) at $(TARGET_BRANCH)."
+
+operator-deploy: ## Bootstrap the Validated Patterns framework
+	@command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
+	@helm repo add validated-patterns "$(PATTERN_CHART_REPO)" --force-update >/dev/null
+	@helm repo update validated-patterns >/dev/null
+	helm upgrade --install "$(PATTERN_NAME)" "$(PATTERN_INSTALL_CHART)" \
+	  --namespace "$(PATTERN_NAMESPACE)" --create-namespace \
+	  --values values-global.yaml \
+	  --set-string main.git.repoURL="$(TARGET_ORIGIN)" \
+	  --set-string main.git.revision="$(TARGET_BRANCH)"
+
+uninstall: ## Remove the bootstrap Helm release
+	@command -v helm >/dev/null || { echo "helm is required" >&2; exit 1; }
+	helm uninstall "$(PATTERN_NAME)" --namespace "$(PATTERN_NAMESPACE)"
+
+source-check: ## Verify that all original source files are byte-identical
+	sha256sum --check SOURCE_BASELINE.sha256
+
+validate: source-check ## Validate source fidelity, YAML/JSON, Kustomize references, and VP wiring
+	python3 scripts/validate_pattern.py
+	@if command -v kubectl >/dev/null; then \
+	  $(MAKE) render; \
+	elif command -v oc >/dev/null; then \
+	  $(MAKE) render KUSTOMIZE_CMD='oc kustomize'; \
+	else \
+	  echo "kubectl/oc not found: offline structural validation completed; rendering skipped"; \
+	fi
+
+KUSTOMIZE_CMD ?= kubectl kustomize
+render: ## Render every Kustomize application referenced by the pattern
+	@mkdir -p dist/rendered
+	@for path in gpuaas gpuaas/monitoring llm-d observability smart-model-router-validated-pattern/manifests; do \
+	  name=$$(echo "$$path" | tr '/' '-'); \
+	  $(KUSTOMIZE_CMD) "$$path" > "dist/rendered/$$name.yaml"; \
+	done
+	@echo "Rendered manifests are in dist/rendered/."
+
+patternizer-refresh: ## Refresh official framework files (requires Podman)
+	podman run --pull=newer -v "$(CURDIR):$(CURDIR):z" -w "$(CURDIR)" \
+	  quay.io/validatedpatterns/patternizer upgrade

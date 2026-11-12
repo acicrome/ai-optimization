@@ -1,0 +1,6 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - examples/llminferenceservice-gpt-oss-20b.yaml
+  - examples/llminferenceservice-qwen3-32b.yaml

@@ -1,0 +1,16 @@
+---
+global:
+  pattern: ai-optimization
+  singleArgoCD: true
+  secretLoader:
+    disabled: true
+  options:
+    useCSV: false
+    syncPolicy: Automatic
+    installPlanApproval: Automatic
+
+main:
+  variant: hub
+  multiSourceConfig:
+    enabled: true
+    clusterGroupChartVersion: "0.9.*"

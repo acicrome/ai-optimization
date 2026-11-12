@@ -1,0 +1,14 @@
+# Credentials and cluster access
+values-secret.yaml
+values-secret-*.yaml
+.env
+.env.*
+.kube/
+*.kubeconfig
+
+# Local validation and rendering output
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+*.zip
