@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "smart-model-router.fullname" . }}-settings
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "smart-model-router.labels" . | nindent 4 }}
+data:
+  MAAS_URL: {{ .Values.maas.url | quote }}
+  MAAS_TLS_VERIFY: {{ .Values.maas.tlsVerify | quote }}
+  SIMPLE_MODEL: {{ .Values.models.simple | quote }}
+  COMPLEX_MODEL: {{ .Values.models.complex | quote }}
+  LLAMA_BASE_URL: {{ .Values.classifier.url | quote }}
+  LLAMA_MODEL: {{ .Values.classifier.model | quote }}
+  LLAMA_TIMEOUT: {{ .Values.classifier.timeoutSeconds | quote }}
+  REQUEST_TIMEOUT: {{ .Values.requestTimeoutSeconds | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "smart-model-router.fullname" . }}-code
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "smart-model-router.labels" . | nindent 4 }}
+data:
+  index.html: |-
+{{ .Files.Get "files/index.html" | indent 4 }}
+  smart_model_router.py: |-
+{{ .Files.Get "files/smart_model_router.py" | indent 4 }}

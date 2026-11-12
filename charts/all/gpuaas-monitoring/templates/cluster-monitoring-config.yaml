@@ -1,0 +1,13 @@
+{{- if .Values.clusterMonitoring.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.clusterMonitoring.name | quote }}
+  namespace: {{ .Values.clusterMonitoring.namespace | quote }}
+  annotations:
+    ai-optimization.validatedpatterns.io/cluster-impact: "true"
+data:
+  config.yaml: |
+    enableUserWorkload: {{ .Values.clusterMonitoring.enableUserWorkload }}
+{{- end }}

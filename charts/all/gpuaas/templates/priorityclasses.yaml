@@ -1,0 +1,12 @@
+{{- range .Values.priorityClasses }}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: WorkloadPriorityClass
+metadata:
+  name: {{ .name | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "-10"
+value: {{ .value }}
+description: {{ .description | quote }}
+{{- end }}

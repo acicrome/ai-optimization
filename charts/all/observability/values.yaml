@@ -1,0 +1,72 @@
+---
+dashboards:
+  enabled: true
+  namespace: openshift-monitoring
+  labels: {}
+  items:
+    - name: grafana-dashboard-vllm
+      key: vllm-dashboard.json
+      file: files/dashboards/vllm-dashboard.json
+    - name: grafana-dashboard-kueue
+      key: kueue-openshift-ai-monitoring.json
+      file: files/dashboards/kueue/kueue-openshift-ai-monitoring.json
+    - name: grafana-dashboard-llmd
+      key: llm-d-performance.json
+      file: files/dashboards/llm-d/llm-d-performance.json
+    - name: grafana-dashboard-ai-engineer
+      key: ai-engineer-dashboard.json
+      file: files/dashboards/maas/ai-engineer-dashboard.json
+    - name: grafana-dashboard-maas-consumption
+      key: maas-token-metrics-consumption-quota-cost.json
+      file: files/dashboards/maas/maas-token-metrics-consumption-quota-cost.json
+    - name: grafana-dashboard-platform-admin
+      key: platform-admin-dashboard.json
+      file: files/dashboards/maas/platform-admin-dashboard.json
+
+serviceMonitors:
+  - enabled: true
+    name: qwen3-32b-vllm-metrics
+    namespace: agent
+    labels:
+      monitoring.opendatahub.io/scrape: "true"
+    selector:
+      name: qwen3-32b-vllm-metrics
+    namespaceSelector: {}
+    endpoints:
+      - path: /metrics
+        port: qwen3-32b-vllm-metrics
+        scheme: http
+  - enabled: true
+    name: llama-metrics
+    namespace: ai-ops
+    labels:
+      monitoring.opendatahub.io/scrape: "true"
+    selector:
+      name: llama-metrics
+    namespaceSelector: {}
+    endpoints:
+      - path: /metrics
+        port: llama-metrics
+        scheme: http
+  - enabled: true
+    name: nvidia-dcgm-exporter
+    namespace: nvidia-gpu-operator
+    labels:
+      app: nvidia-dcgm-exporter
+    selector:
+      app: nvidia-dcgm-exporter
+    namespaceSelector:
+      matchNames:
+        - nvidia-gpu-operator
+    jobLabel: app
+    endpoints:
+      - path: /metrics
+        port: gpu-metrics
+
+prometheusRule:
+  enabled: true
+  name: nvidia-gpu-operator-metrics
+  namespace: nvidia-gpu-operator
+  labels:
+    app: gpu-operator
+  rulesFile: files/gpu-operator-rule-spec.yaml

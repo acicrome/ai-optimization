@@ -1,0 +1,9 @@
+---
+apiVersion: v2
+name: observability
+description: AI Optimization dashboards, ServiceMonitors, and GPU Operator alerts.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+annotations:
+  validatedpatterns.io/pattern: ai-optimization

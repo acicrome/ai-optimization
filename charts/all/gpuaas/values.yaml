@@ -1,0 +1,133 @@
+---
+namespaces:
+  - name: team-inference
+    labels:
+      kubernetes.io-metadata.name: team-inference
+      opendatahub.io/dashboard: "true"
+      kueue.openshift.io/managed: "true"
+  - name: team-training
+    labels:
+      kubernetes.io-metadata.name: team-training
+      opendatahub.io/dashboard: "true"
+      kueue.openshift.io/managed: "true"
+
+resourceFlavors:
+  - name: default-flavor
+  - name: gpu-flavor
+    nodeLabels:
+      nvidia.com/gpu.present: "true"
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+cohort:
+  enabled: true
+  name: gpu-cohort
+
+priorityClasses:
+  - name: inference-priority
+    value: 1000
+    description: Priority class for inference jobs
+  - name: training-priority
+    value: 100
+    description: Priority class for training jobs
+
+clusterQueues:
+  - name: inference-cq
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: team-inference
+    queueingStrategy: BestEffortFIFO
+    cohortName: gpu-cohort
+    defaultFlavor: default-flavor
+    gpuFlavor: gpu-flavor
+    preemption:
+      reclaimWithinCohort: Any
+      borrowWithinCohort:
+        policy: LowerPriority
+        maxPriorityThreshold: 100
+      withinClusterQueue: LowerPriority
+    resources:
+      cpu: "32"
+      memory: 36Gi
+      gpu:
+        nominalQuota: "3"
+        borrowingLimit: "1"
+  - name: training-cq
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: team-training
+    queueingStrategy: BestEffortFIFO
+    cohortName: gpu-cohort
+    defaultFlavor: default-flavor
+    gpuFlavor: gpu-flavor
+    preemption:
+      reclaimWithinCohort: LowerPriority
+      withinClusterQueue: LowerPriority
+    resources:
+      cpu: "32"
+      memory: 36Gi
+      gpu:
+        nominalQuota: "1"
+        borrowingLimit: "2"
+
+localQueues:
+  - name: team-inference
+    namespace: team-inference
+    clusterQueue: inference-cq
+  - name: team-training
+    namespace: team-training
+    clusterQueue: training-cq
+
+hardwareProfiles:
+  namespace: redhat-ods-applications
+  items:
+    - name: highpriority
+      displayName: highPriority
+      disabled: false
+      identifiers:
+        - defaultCount: 8
+          displayName: CPU
+          identifier: cpu
+          maxCount: 32
+          minCount: 1
+          resourceType: CPU
+        - defaultCount: 16Gi
+          displayName: Memory
+          identifier: memory
+          maxCount: 128Gi
+          minCount: 2Gi
+          resourceType: Memory
+        - defaultCount: 1
+          displayName: NVIDIA L4
+          identifier: nvidia.com/gpu
+          maxCount: 4
+          minCount: 1
+          resourceType: Accelerator
+      localQueueName: team-inference
+      priorityClass: inference-priority
+    - name: lowpriority
+      displayName: lowPriority
+      disabled: false
+      identifiers:
+        - defaultCount: 8
+          displayName: CPU
+          identifier: cpu
+          maxCount: 32
+          minCount: 1
+          resourceType: CPU
+        - defaultCount: 16Gi
+          displayName: Memory
+          identifier: memory
+          maxCount: 128Gi
+          minCount: 2Gi
+          resourceType: Memory
+        - defaultCount: 1
+          displayName: NVIDIA L4
+          identifier: nvidia.com/gpu
+          maxCount: 3
+          minCount: 1
+          resourceType: Accelerator
+      localQueueName: team-training
+      priorityClass: training-priority

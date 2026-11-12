@@ -1,0 +1,23 @@
+{{- $namespace := .Values.hardwareProfiles.namespace -}}
+{{- range .Values.hardwareProfiles.items }}
+---
+apiVersion: infrastructure.opendatahub.io/v1
+kind: HardwareProfile
+metadata:
+  name: {{ .name | quote }}
+  namespace: {{ $namespace | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "10"
+    opendatahub.io/dashboard-feature-visibility: "[]"
+    opendatahub.io/disabled: {{ .disabled | quote }}
+    opendatahub.io/display-name: {{ .displayName | quote }}
+spec:
+  identifiers:
+    {{- toYaml .identifiers | nindent 4 }}
+  scheduling:
+    kueue:
+      localQueueName: {{ .localQueueName | quote }}
+      priorityClass: {{ .priorityClass | quote }}
+    type: Queue
+{{- end }}

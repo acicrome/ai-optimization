@@ -1,0 +1,24 @@
+{{- if .Values.route.enabled }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "smart-model-router.fullname" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "smart-model-router.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.route.host }}
+  host: {{ . | quote }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ include "smart-model-router.fullname" . }}
+  port:
+    targetPort: http
+  tls:
+    termination: {{ .Values.route.tls.termination }}
+    {{- with .Values.route.tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ . }}
+    {{- end }}
+{{- end }}

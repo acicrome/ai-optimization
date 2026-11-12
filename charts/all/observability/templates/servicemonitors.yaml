@@ -1,0 +1,27 @@
+{{- range .Values.serviceMonitors }}
+{{- if .enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .name | quote }}
+  namespace: {{ .namespace | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  {{- with .labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  endpoints:
+    {{- toYaml .endpoints | nindent 4 }}
+  namespaceSelector:
+    {{- toYaml .namespaceSelector | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- toYaml .selector | nindent 6 }}
+  {{- with .jobLabel }}
+  jobLabel: {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

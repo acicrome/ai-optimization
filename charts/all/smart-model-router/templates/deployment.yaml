@@ -1,0 +1,74 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "smart-model-router.fullname" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "smart-model-router.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "smart-model-router.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "smart-model-router.fullname" . }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+        - name: python
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: [python, -u, /app/smart_model_router.py]
+          envFrom:
+            - configMapRef:
+                name: {{ include "smart-model-router.fullname" . }}-settings
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: MAAS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.maas.apiKeySecretName | quote }}
+                  key: {{ .Values.maas.apiKeySecretKey | quote }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: router-code
+              mountPath: /app
+      volumes:
+        - name: router-code
+          configMap:
+            name: {{ include "smart-model-router.fullname" . }}-code

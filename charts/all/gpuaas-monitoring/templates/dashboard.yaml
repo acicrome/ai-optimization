@@ -1,0 +1,13 @@
+{{- if .Values.dashboard.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.dashboard.name | quote }}
+  namespace: {{ .Values.dashboard.namespace | quote }}
+  labels:
+    {{- toYaml .Values.dashboard.labels | nindent 4 }}
+data:
+  {{ .Values.dashboard.filename }}: |-
+{{ .Files.Get "files/kueue-openshift-ai-dashboard.json" | indent 4 }}
+{{- end }}

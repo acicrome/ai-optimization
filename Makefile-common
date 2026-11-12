@@ -5,9 +5,9 @@ PATTERN_NAMESPACE ?= openshift-operators
 PATTERN_CHART_REPO ?= https://charts.validatedpatterns.io
 PATTERN_INSTALL_CHART ?= validated-patterns/pattern-install
 TARGET_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
-TARGET_ORIGIN ?= $(shell git remote get-url origin 2>/dev/null || echo https://github.com/acicfede/ai-optimization.git)
+TARGET_ORIGIN ?= $(shell git remote get-url origin 2>/dev/null || echo https://github.com/acicrome/ai-optimization.git)
 
-.PHONY: help install operator-deploy uninstall validate render source-check patternizer-refresh
+.PHONY: help install operator-deploy uninstall validate validate-static helm-validate template source-check patternizer-refresh
 
 help: ## Display available targets
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z0-9_.-]+:.*##/ {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -32,24 +32,16 @@ uninstall: ## Remove the bootstrap Helm release
 source-check: ## Verify that all original source files are byte-identical
 	sha256sum --check SOURCE_BASELINE.sha256
 
-validate: source-check ## Validate source fidelity, YAML/JSON, Kustomize references, and VP wiring
+validate-static: source-check ## Validate source fidelity, YAML/JSON, chart structure, and VP wiring
 	python3 scripts/validate_pattern.py
-	@if command -v kubectl >/dev/null; then \
-	  $(MAKE) render; \
-	elif command -v oc >/dev/null; then \
-	  $(MAKE) render KUSTOMIZE_CMD='oc kustomize'; \
-	else \
-	  echo "kubectl/oc not found: offline structural validation completed; rendering skipped"; \
-	fi
+	python3 scripts/check_helm_templates.py
 
-KUSTOMIZE_CMD ?= kubectl kustomize
-render: ## Render every Kustomize application referenced by the pattern
-	@mkdir -p dist/rendered
-	@for path in gpuaas gpuaas/monitoring llm-d observability smart-model-router-validated-pattern/manifests; do \
-	  name=$$(echo "$$path" | tr '/' '-'); \
-	  $(KUSTOMIZE_CMD) "$$path" > "dist/rendered/$$name.yaml"; \
-	done
-	@echo "Rendered manifests are in dist/rendered/."
+helm-validate: ## Run strict helm lint and helm template for all five charts
+	scripts/validate-helm.sh
+
+validate: validate-static helm-validate ## Run all repository and Helm validations
+
+template: helm-validate ## Render all charts to dist/rendered after linting
 
 patternizer-refresh: ## Refresh official framework files (requires Podman)
 	podman run --pull=newer -v "$(CURDIR):$(CURDIR):z" -w "$(CURDIR)" \

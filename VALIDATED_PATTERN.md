@@ -1,82 +1,73 @@
-# Red Hat Validated Patterns integration
+# Helm-based Red Hat Validated Patterns integration
 
-This layer turns the verified repository content into a Validated Patterns GitOps repository without installing or
-inventing platform components. The source baseline is commit `ea72908c3da8ec18d9f86907b42f23155c1ebd70` from the
-reconstructed backup. `SOURCE_BASELINE.sha256` protects all 64 files tracked by that commit.
+This repository layer targets `https://github.com/acicrome/ai-optimization.git`, branch `validated-pattern`. It converts
+only the five deployable source components into parameterized Helm charts while preserving the verified source baseline.
 
-## Applications mapped from the source
+## Source fidelity
 
-| Argo CD application | Source path | Existing content |
+`SOURCE_BASELINE.sha256` contains the SHA-256 checksum of every one of the 64 files from the verified source commit
+`ea72908c3da8ec18d9f86907b42f23155c1ebd70`. Run `make source-check` to prove that the original files have not changed.
+The original Kustomize files remain as historical/source artifacts, but the Validated Patterns bill of materials no
+longer references them.
+
+## Helm applications
+
+| Application | Helm chart | Source represented |
 |---|---|---|
-| `gpuaas` | `gpuaas/` | Namespaces, Kueue ResourceFlavors, queues, cohort, priorities and OpenShift AI HardwareProfiles |
-| `gpuaas-monitoring` | `gpuaas/monitoring/` | Existing monitoring ConfigMap, RoleBinding, ServiceMonitor and Kueue dashboard JSON |
-| `llm-d` | `llm-d/` | The two existing `LLMInferenceService` examples |
-| `observability` | `observability/` | Existing dashboards, ServiceMonitors and NVIDIA GPU Operator PrometheusRule |
-| `smart-model-router` | `smart-model-router-validated-pattern/manifests/` | Existing router Namespace, ConfigMaps, Deployment, Service and Route |
+| `gpuaas` | `charts/all/gpuaas` | Namespaces, Kueue flavors/queues/cohort/priorities, and OpenShift AI HardwareProfiles |
+| `gpuaas-monitoring` | `charts/all/gpuaas-monitoring` | Cluster monitoring configuration, RBAC, Kueue ServiceMonitor, and dashboard |
+| `llm-d` | `charts/all/llm-d` | GPT-OSS-20B and Qwen3-32B `LLMInferenceService` resources |
+| `observability` | `charts/all/observability` | Six dashboards, three ServiceMonitors, and NVIDIA GPU Operator alert rules |
+| `smart-model-router` | `charts/all/smart-model-router` | Router code/UI, settings, Deployment, Service, Namespace, and Route |
 
-The only Kustomize files added inside source component directories are entry points for content that had manifests but no
-root `kustomization.yaml`: `llm-d/kustomization.yaml` and `gpuaas/monitoring/kustomization.yaml`.
+`training/` and `benchmarking/` remain baseline artifacts. They do not contain Kubernetes deployment resources and are
+not represented as Argo CD applications.
 
-`training/` and `benchmarking/` are preserved but are not Argo CD applications: the verified baseline contains a training
-notebook and documentation, not Kubernetes deployable resources.
+## Platform boundary
 
-## Deliberately not installed
+No Operator subscriptions are declared. The pattern assumes the platform capabilities documented by the original
+repository are already installed and compatible: OpenShift AI, Kueue APIs, llm-d/KServe API, GPU support, Prometheus
+Operator CRDs, OpenShift monitoring, and any required gateway/model-storage facilities.
 
-The pattern declares no Operator subscriptions. It does not install OpenShift, OpenShift AI, Kueue, llm-d APIs, the
-NVIDIA GPU Operator, Prometheus Operator, Grafana, model storage, gateways, service accounts, image-pull credentials, or
-MaaS. Those are prerequisites explicitly documented by the original repository.
-
-## Secret boundary
-
-Secret loading is disabled. The original Smart Model Router requires a `smart-router-maas-credentials` Secret to be
-created out-of-band in `smart-model-router`; its `secret-example.yaml` remains excluded from the original Kustomization.
-Do not commit the MaaS API key.
-
-## Environment review before installation
-
-The original manifests contain concrete example values: namespaces, GPU quantities, HardwareProfile names, queue names,
-model URIs, gateway references, service accounts, Route exposure and metrics selectors. Review those existing values
-before enabling automatic reconciliation against a cluster.
-
-In particular:
-
-- `gpuaas/monitoring/enableMonitoring.yaml` changes the cluster-wide OpenShift monitoring ConfigMap. It is a separate
-  Argo CD application so it can be reviewed and disabled independently in `variants/hub/values-hub.yaml`.
-- the Qwen `LLMInferenceService` is in namespace `agent`, while the versioned `team-inference` LocalQueue is in namespace
-  `team-inference`; confirm or correct that queue binding for the target Kueue configuration before sync.
-- the GPT-OSS example references the `gpu` HardwareProfile and image-pull Secret, while this repository versions only the
-  `highpriority` and `lowpriority` HardwareProfiles; provide the referenced prerequisites externally or customize the
-  example.
-- the Smart Model Router uses placeholder MaaS and classifier endpoints from `router-config.env`; replace them with values
-  valid for the target environment without committing credentials.
+The Smart Model Router API key remains an out-of-band Secret. No populated Secret is rendered by a chart.
 
 ## Validation
 
 ```bash
-make validate
+make validate-static   # checksum, YAML/JSON, chart structure, and VP wiring
+make helm-validate     # strict helm lint plus helm template for every chart
+make validate          # all checks
 ```
 
-This verifies original-file checksums, parses YAML and JSON, checks every Kustomization reference, verifies that all
-Validated Patterns application paths exist, and confirms that no Operator subscriptions were added. When `kubectl` or
-`oc` is available, it also renders all five Kustomize applications.
+Rendered manifests are written to `dist/rendered/`. CI runs the same commands with Helm 3.16.4 on pushes and pull
+requests to `validated-pattern` and `main`.
 
 ## Installation
 
-1. Review and customize the original environment-specific manifests.
-2. Create the required Smart Model Router Secret out-of-band.
-3. Commit and push the pattern files to a branch reachable by OpenShift GitOps.
-4. Log in to the target OpenShift cluster.
-5. Run:
+After reviewing the chart values and satisfying the prerequisites:
 
 ```bash
-export TARGET_BRANCH=<published-branch>
+export TARGET_ORIGIN=https://github.com/acicrome/ai-optimization.git
+export TARGET_BRANCH=validated-pattern
 ./pattern.sh make install
 ```
 
-Override `TARGET_ORIGIN` if the cluster must read a fork or a different Git URL.
+Before Smart Model Router reconciliation, create its required Secret outside Git:
 
-## Publication metadata
+```bash
+oc create secret generic smart-router-maas-credentials \
+  --namespace smart-model-router \
+  --from-literal=MAAS_API_KEY='<api-key>'
+```
 
-`pattern-metadata.yaml` is intentionally not fabricated. Validated Patterns catalog metadata requires tested cluster
-sizing and publication links, but the source repository contains no validated worker/control-plane sizing. Add metadata
-only after the integrated pattern has been tested on a documented cluster configuration.
+## Important source-derived checks
+
+- Review the cluster-wide update rendered by `gpuaas-monitoring.clusterMonitoring`.
+- Match Kueue quotas, GPU labels, queue namespaces, and HardwareProfiles to real capacity.
+- Confirm the Qwen queue is available to the `agent` namespace or change the chart values.
+- Provide the GPT-OSS image-pull Secret and referenced `gpu` HardwareProfile, or customize those values.
+- Replace Smart Model Router placeholder endpoints and model identifiers.
+- Disable observability objects whose target workloads, namespaces, or metrics services do not exist.
+
+Catalog `pattern-metadata.yaml` remains intentionally absent because the source repository does not provide a tested
+control-plane/worker sizing baseline suitable for publication metadata.

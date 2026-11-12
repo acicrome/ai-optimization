@@ -1,0 +1,14 @@
+{{- if .Values.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Values.prometheusRule.name | quote }}
+  namespace: {{ .Values.prometheusRule.namespace | quote }}
+  labels:
+    {{- toYaml .Values.prometheusRule.labels | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+{{ .Files.Get .Values.prometheusRule.rulesFile | indent 2 }}
+{{- end }}

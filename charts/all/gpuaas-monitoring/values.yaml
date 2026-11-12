@@ -1,0 +1,41 @@
+---
+clusterMonitoring:
+  enabled: true
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+  enableUserWorkload: true
+
+roleBinding:
+  enabled: true
+  name: prometheus-k8s-kueue
+  namespace: redhat-ods-applications
+  clusterRole: monitoring-rules-view
+  serviceAccount:
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+
+serviceMonitor:
+  enabled: true
+  name: kueue-controller-manager-metrics
+  namespace: redhat-ods-applications
+  labels:
+    control-plane: controller-manager
+  selector:
+    control-plane: controller-manager
+    app.kubernetes.io/name: kueue
+  endpoint:
+    port: metrics
+    path: /metrics
+    interval: 30s
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls:
+      insecureSkipVerify: true
+
+dashboard:
+  enabled: true
+  name: kueue-openshift-ai-dashboard
+  namespace: openshift-config-managed
+  labels:
+    console.openshift.io/dashboard: "true"
+  filename: kueue-openshift-ai-dashboard.json

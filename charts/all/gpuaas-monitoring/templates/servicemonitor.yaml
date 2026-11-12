@@ -1,0 +1,24 @@
+{{- if .Values.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.serviceMonitor.name | quote }}
+  namespace: {{ .Values.serviceMonitor.namespace | quote }}
+  labels:
+    {{- toYaml .Values.serviceMonitor.labels | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  endpoints:
+    - port: {{ .Values.serviceMonitor.endpoint.port | quote }}
+      path: {{ .Values.serviceMonitor.endpoint.path | quote }}
+      interval: {{ .Values.serviceMonitor.endpoint.interval | quote }}
+      scheme: {{ .Values.serviceMonitor.endpoint.scheme | quote }}
+      bearerTokenFile: {{ .Values.serviceMonitor.endpoint.bearerTokenFile | quote }}
+      tlsConfig:
+        insecureSkipVerify: {{ .Values.serviceMonitor.endpoint.tls.insecureSkipVerify }}
+  selector:
+    matchLabels:
+      {{- toYaml .Values.serviceMonitor.selector | nindent 6 }}
+{{- end }}

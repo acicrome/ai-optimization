@@ -1,0 +1,9 @@
+---
+apiVersion: v2
+name: smart-model-router
+description: Smart Model Router application from the AI Optimization repository.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+annotations:
+  validatedpatterns.io/pattern: ai-optimization

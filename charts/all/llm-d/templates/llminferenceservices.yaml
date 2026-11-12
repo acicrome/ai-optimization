@@ -1,0 +1,48 @@
+{{- $root := . -}}
+{{- range $key, $model := .Values.models }}
+{{- if $model.enabled }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: {{ $model.name | quote }}
+  namespace: {{ default $root.Values.defaults.namespace $model.namespace | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    opendatahub.io/hardware-profile-name: {{ $model.hardwareProfile | quote }}
+    opendatahub.io/hardware-profile-namespace: {{ $root.Values.defaults.hardwareProfileNamespace | quote }}
+  {{- if $model.queueName }}
+  labels:
+    kueue.x-k8s.io/queue-name: {{ $model.queueName | quote }}
+  {{- end }}
+spec:
+  model:
+    name: {{ $model.modelName | quote }}
+    uri: {{ $model.uri | quote }}
+  replicas: {{ $model.replicas }}
+  router:
+    gateway:
+      refs:
+        - name: {{ $root.Values.defaults.gateway.name | quote }}
+          namespace: {{ $root.Values.defaults.gateway.namespace | quote }}
+    route: {}
+    scheduler: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: VLLM_ADDITIONAL_ARGS
+            value: {{ $model.vllmAdditionalArgs | quote }}
+        resources:
+          {{- toYaml $model.resources | nindent 10 }}
+    {{- with $model.serviceAccountName }}
+    serviceAccountName: {{ . | quote }}
+    {{- end }}
+    {{- with $model.imagePullSecrets }}
+    imagePullSecrets:
+      {{- range . }}
+      - name: {{ . | quote }}
+      {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}

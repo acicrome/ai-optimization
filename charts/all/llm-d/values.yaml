@@ -1,0 +1,56 @@
+---
+defaults:
+  namespace: agent
+  hardwareProfileNamespace: redhat-ods-applications
+  gateway:
+    name: maas-default-gateway
+    namespace: openshift-ingress
+
+models:
+  gptOss20b:
+    enabled: true
+    name: gpt-oss-20b
+    namespace: agent
+    modelName: gpt-oss-20b
+    uri: oci://registry.redhat.io/rhelai1/modelcar-gpt-oss-20b:1.5
+    replicas: 1
+    hardwareProfile: gpu
+    queueName: ""
+    serviceAccountName: ""
+    imagePullSecrets:
+      - gpt-oss-20b
+    vllmAdditionalArgs: >-
+      --enable-auto-tool-choice --tool-call-parser=openai --max_model_len=32768
+    resources:
+      requests:
+        cpu: "8"
+        memory: 16Gi
+        nvidia.com/gpu: "2"
+      limits:
+        cpu: "8"
+        memory: 16Gi
+        nvidia.com/gpu: "2"
+
+  qwen3_32b:
+    enabled: true
+    name: qwen3-32b
+    namespace: agent
+    modelName: qwen3-32b
+    uri: s3://models/models/Qwen3-32B-FP8
+    replicas: 2
+    hardwareProfile: highpriority
+    queueName: team-inference
+    serviceAccountName: qwen323-sa
+    imagePullSecrets: []
+    vllmAdditionalArgs: >-
+      --enable-auto-tool-choice --tensor-parallel-size=2 --max-model-len=20000
+      --tool-call-parser=hermes --gpu-memory-utilization=0.9
+    resources:
+      requests:
+        cpu: "8"
+        memory: 16Gi
+        nvidia.com/gpu: "2"
+      limits:
+        cpu: "32"
+        memory: 128Gi
+        nvidia.com/gpu: "2"

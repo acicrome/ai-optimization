@@ -1,0 +1,33 @@
+{{- range .Values.clusterQueues }}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ClusterQueue
+metadata:
+  name: {{ .name | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  preemption:
+    {{- toYaml .preemption | nindent 4 }}
+  namespaceSelector:
+    {{- toYaml .namespaceSelector | nindent 4 }}
+  queueingStrategy: {{ .queueingStrategy }}
+  cohortName: {{ .cohortName | quote }}
+  resourceGroups:
+    - coveredResources: [cpu, memory]
+      flavors:
+        - name: {{ .defaultFlavor | quote }}
+          resources:
+            - name: cpu
+              nominalQuota: {{ .resources.cpu | quote }}
+            - name: memory
+              nominalQuota: {{ .resources.memory | quote }}
+    - coveredResources: [nvidia.com/gpu]
+      flavors:
+        - name: {{ .gpuFlavor | quote }}
+          resources:
+            - name: nvidia.com/gpu
+              nominalQuota: {{ .resources.gpu.nominalQuota | quote }}
+              borrowingLimit: {{ .resources.gpu.borrowingLimit | quote }}
+{{- end }}

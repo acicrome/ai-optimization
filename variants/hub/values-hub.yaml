@@ -1,8 +1,6 @@
 ---
-# This bill of materials references only deployable content already present in
-# the verified source tree. Platform Operators and prerequisites are not
-# installed by this pattern; they remain external prerequisites as documented
-# by each source component.
+# All applications point to source-backed Helm charts. Platform Operators and
+# external prerequisites are deliberately not installed by this pattern.
 clusterGroup:
   name: hub
   isHubCluster: true
@@ -15,33 +13,28 @@ clusterGroup:
       name: gpuaas
       namespace: team-inference
       argoProject: ai-optimization
-      path: gpuaas
-      kustomize: true
+      path: charts/all/gpuaas
 
     gpuaas-monitoring:
       name: gpuaas-monitoring
       namespace: redhat-ods-applications
       argoProject: ai-optimization
-      path: gpuaas/monitoring
-      kustomize: true
+      path: charts/all/gpuaas-monitoring
 
     llm-d:
       name: llm-d
       namespace: agent
       argoProject: ai-optimization
-      path: llm-d
-      kustomize: true
+      path: charts/all/llm-d
 
     observability:
       name: observability
       namespace: openshift-monitoring
       argoProject: ai-optimization
-      path: observability
-      kustomize: true
+      path: charts/all/observability
 
     smart-model-router:
       name: smart-model-router
       namespace: smart-model-router
       argoProject: ai-optimization
-      path: smart-model-router-validated-pattern/manifests
-      kustomize: true
+      path: charts/all/smart-model-router

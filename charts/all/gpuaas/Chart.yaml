@@ -1,0 +1,9 @@
+---
+apiVersion: v2
+name: gpuaas
+description: GPUaaS scheduling configuration from the AI Optimization repository.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+annotations:
+  validatedpatterns.io/pattern: ai-optimization

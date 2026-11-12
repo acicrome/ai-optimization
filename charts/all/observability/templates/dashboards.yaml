@@ -1,0 +1,18 @@
+{{- if .Values.dashboards.enabled }}
+{{- $root := . -}}
+{{- range .Values.dashboards.items }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name | quote }}
+  namespace: {{ $root.Values.dashboards.namespace | quote }}
+  {{- with $root.Values.dashboards.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{ .key }}: |-
+{{ $root.Files.Get .file | indent 4 }}
+{{- end }}
+{{- end }}

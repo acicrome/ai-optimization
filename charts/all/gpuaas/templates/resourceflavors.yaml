@@ -1,0 +1,21 @@
+{{- range .Values.resourceFlavors }}
+---
+apiVersion: kueue.x-k8s.io/v1beta2
+kind: ResourceFlavor
+metadata:
+  name: {{ .name | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "-10"
+{{- if or .nodeLabels .tolerations }}
+spec:
+  {{- with .nodeLabels }}
+  nodeLabels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}
