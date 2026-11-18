@@ -5,7 +5,7 @@ aliases: /optimizing-ai-infrastructure/getting-started/
 ---
 
 :toc:
-:imagesdir: ../images
+:imagesdir: images
 :_content-type: ASSEMBLY
 include::modules/comm-attributes.adoc[]
 
@@ -72,7 +72,7 @@ GPUaaS is a centralized service built on Red Hat build of Kueue. It exposes GPU 
 The service is built from four components, as shown in the following diagram.
 
 .GPU as a Service component hierarchy (example configuration)
-image::gpuaas-kueue.png[GPU as a Service component hierarchy (example configuration),link="../images/gpuaas-kueue.png"]
+image::gpuaas-kueue.png[GPU as a Service component hierarchy (example configuration)]
 
 [cols="1,1,5",options="header"]
 |===
@@ -145,7 +145,7 @@ A request is processed as follows:
 . The response is returned to the caller, governed, logged and rate-limited.
 
 .MaaS request flow
-image::maas-request-flow.png[MaaS request flow,link="../images/maas-request-flow.png"]
+image::maas-request-flow.png[MaaS request flow]
 
 [id="smart-model-router-and-dynamic-model-selection"]
 === Smart Model Router and dynamic model selection
@@ -337,7 +337,7 @@ For connected environments:
 
 .Procedure
 . Make sure that the platform described in the prerequisites is available.
-. Install the OpenShift CLI, available at link:https://console.redhat.com/openshift/downloads[https://console.redhat.com/openshift/downloads], and Podman.
+. Install the OpenShift CLI, available at link:https://console.redhat.com/openshift/downloads[Red Hat OpenShift downloads], and Podman.
 . Log in to the OpenShift cluster. The `+KUBECONFIG+` file must be below your home directory, because `+pattern.sh+` mounts it into the container of the framework:
 +
 [source,terminal]
@@ -440,7 +440,7 @@ A synchronized application does not guarantee admission or scheduling: check the
 The demo use case shows the complete request lifecycle and the sharing of GPUs between inference and fine-tuning.
 
 .End-to-end request flow
-image::request-flow.png[End-to-end request flow,link="../images/request-flow.png"]
+image::request-flow.png[End-to-end request flow]
 
 *Request processing*
 
@@ -469,7 +469,7 @@ The `+training/+` directory contains a notebook that runs a distributed fine-tun
 The project uses two complementary tools to evaluate the served models, Qwen3-32B and GPT-OSS-20B:
 
 * *GuideLLM* measures serving performance under configurable load: request throughput, output-token throughput, time to first token, inter-token latency and behavior under concurrency.
-* *LM Evaluation Harness (`+lm-eval+`)* evaluates the quality of the models on selected tasks and datasets.
+* *LM Evaluation Harness (`+lm-eval+`):* evaluates the quality of the models on selected tasks and datasets.
 
 Performance and quality results answer different questions, so they are reported separately. The `+benchmarking/+` directory documents the role of each tool and what to record for every run: model and revision, serving runtime, product versions and GPU configuration, workload and evaluation settings, timestamp and raw output, without credentials. Compare runs only when model, runtime, hardware and settings are sufficiently aligned. The documentation does not claim any particular performance or quality result.
 
@@ -518,3 +518,4 @@ $ oc get workloads -A
 ----
 $ oc -n smart-model-router rollout status deployment/smart-model-router
 $ oc -n smart-model-router get route smart-model-router
+----
