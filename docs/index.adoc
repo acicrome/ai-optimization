@@ -17,7 +17,7 @@ links:
 ---
 
 :toc:
-:imagesdir: ../images
+:imagesdir: images
 :_content-type: ASSEMBLY
 include::modules/comm-attributes.adoc[]
 
@@ -74,7 +74,7 @@ The Optimizing AI Infrastructure pattern addresses these challenges with a dual-
 == Solution overview
 
 .Logical architecture
-image::logical-architecture.png[Logical architecture,link="../images/logical-architecture.png"]
+image::logical-architecture.png[Logical architecture]
 
 The pattern is organized in layers, from the consumers of AI services down to the GPU hardware:
 
