@@ -1,79 +1,53 @@
-# AI Optimization — Validated Pattern
+# AI Optimization Demo — Artifacts
 
-This repository contains the Helm charts, Kubernetes/OpenShift resources, and configuration files for the **AI Optimization Validated Pattern**, covering GPU as a Service (GPUaaS), AI workload management, Models as a Service (MaaS), intelligent model routing, distributed inference, and observability.
+This repository contains the Kubernetes/OpenShift manifests and configuration files for the **AI Optimization demo**, covering GPUaaS, AI workload management, model routing, and observability.
 
 ## Prerequisites
 
-The following infrastructure is assumed to be available before deploying the pattern:
+The following platform components are assumed to be already installed and operational:
 
-- **Red Hat OpenShift Container Platform (OCP)**.
-- GPU-capable worker nodes with the required GPU drivers and device enablement.
-- Access to the required Red Hat Operator catalogs and container registries.
-- Cluster administrator access.
-- Required subscriptions and entitlements.
-- LLM model artifacts and environment-specific credentials.
+- **OpenShift Container Platform (OCP)**.
+- Required GPU infrastructure and platform components, where applicable.
 
-The pattern manages the required **Red Hat OpenShift AI** and **Red Hat build of Kueue** Operators through the Validated Patterns framework.
+The pattern manages the required **Red Hat OpenShift AI (RHOAI)** and **Red Hat build of Kueue** Operators through the Validated Patterns framework.
 
-The Operator channels defined in `variants/hub/values-hub.yaml` are default values and can be adapted to the target environment after verifying compatibility.
+Operator channels are defined in `variants/hub/values-hub.yaml` and can be adapted according to the target environment and supported OpenShift version.
+
+This repository focuses on project-specific resources and custom configurations, including the OpenShift AI configuration required by the solution.
 
 ## Repository Structure
 
 | Directory | Description |
 |---|---|
-| `variants/hub/values-hub.yaml` | ClusterGroup configuration defining managed namespaces, required Operator subscriptions, and Argo CD applications. |
-| `charts/all/rhoai-config/` | Red Hat OpenShift AI configuration, including `DSCInitialization`, `DataScienceCluster`, and Models as a Service enablement. |
-| `charts/all/gpuaas/` | GPUaaS and Kueue configuration, including ResourceFlavors, Cohort, ClusterQueues, LocalQueues, HardwareProfiles, quotas, and priority classes. |
-| `charts/all/gpuaas-monitoring/` | Kueue monitoring resources, including ServiceMonitor, RBAC, and Grafana dashboard configuration. |
-| `charts/all/llm-d/` | Parameterized `LLMInferenceService` resources for distributed model serving. |
-| `charts/all/smart-model-router/` | Smart Model Router application, configuration, Deployment, Service, and Route. |
-| `charts/all/observability/` | Observability resources, including ServiceMonitors, PrometheusRules, and Grafana dashboards. |
-| `training/` | Distributed fine-tuning example using OpenShift AI, Kubeflow Trainer, and Kueue. |
-| `benchmarking/` | Documentation for inference benchmarking and model evaluation. |
-| `docs/` | Validated Pattern documentation and related images. |
+| `charts/all/rhoai-config/` | OpenShift AI configuration, including `DSCInitialization`, `DataScienceCluster`, and Models as a Service enablement. |
+| `charts/all/gpuaas/` | GPUaaS manifests and Kueue configuration, including ResourceFlavors, queues, hardware profiles, and priority classes. |
+| `charts/all/smart-model-router/` | Smart Model Router deployment manifests and configuration. |
+| `charts/all/observability/` | Observability resources, including ServiceMonitors, PrometheusRules, and Grafana dashboard ConfigMaps. |
+| `variants/hub/values-hub.yaml` | Validated Patterns configuration for namespaces, Operator subscriptions, and applications. |
 
 ## Configurations to Be Versioned
 
 Project-specific configurations and custom resources must be maintained in this repository, including:
 
-- **Validated Patterns configuration:** namespaces, Operator subscriptions, and Argo CD applications defined in `variants/hub/values-hub.yaml`.
-- **OpenShift AI:** `DSCInitialization`, `DataScienceCluster`, and Models as a Service enablement.
-- **GPUaaS and Kueue:** queues, ResourceFlavors, Cohort, HardwareProfiles, priority classes, quotas, and borrowing configuration.
-- **Model serving:** llm-d and parameterized `LLMInferenceService` configuration.
-- **MaaS and model management:** configuration and integrations required by the solution.
-- **Smart Model Router:** application configuration, Deployment, Service, Route, and model endpoints.
-- **Observability:** Grafana dashboards, monitoring rules, ServiceMonitors, and related configuration resources.
+- **OpenShift AI:** configuration required by the pattern, including `DSCInitialization`, `DataScienceCluster`, and Models as a Service enablement.
+- **GPUaaS and Kueue:** queues, ResourceFlavors, hardware profiles, priority classes, and related resources.
+- **MaaS and model management:** custom manifests and configuration required by the solution, including integrations and policies where applicable.
+- **Smart Model Router:** application configuration, Deployment, Service, and Route.
+- **Observability:** Grafana dashboards, monitoring rules, and related configuration resources.
+- **Validated Patterns integration:** namespaces, Operator subscriptions, and applications declared in `variants/hub/values-hub.yaml`.
 
-The Red Hat OpenShift AI and Red Hat build of Kueue Operators are declared as subscriptions in `variants/hub/values-hub.yaml`.
+Environment-specific values should be adapted through configuration rather than hardcoded in the Helm templates.
 
-The `rhoai-config` application configures the OpenShift AI components required by the pattern. Models as a Service is enabled through the OpenShift AI `DataScienceCluster`.
+## Security
 
-Kueue remains unmanaged by the OpenShift AI `DataScienceCluster` because the Red Hat build of Kueue Operator is installed separately through the pattern.
+- Do not commit passwords, access tokens, private keys, MaaS API keys, or other secrets in plaintext.
+- Manage credentials through Kubernetes/OpenShift Secrets or dedicated secret-management solutions.
+- Avoid hardcoding environment-specific hostnames, addresses, and parameters when these can be managed through environment-specific configuration.
 
-Environment-specific settings should be managed through values files or controlled Git changes rather than hardcoded into Helm templates.
+## Validation and Deployment
 
-## Environment-specific Configuration
+Validate the Helm charts and the Validated Patterns configuration before deployment and verify that the required infrastructure components are available in the target environment.
 
-The repository provides default values based on the validated reference configuration. These values are not fixed infrastructure or software-version requirements.
+The pattern is deployed through the Validated Patterns framework. Required namespaces and Operator subscriptions are declared in `variants/hub/values-hub.yaml`, while the project-specific resources are managed through the Helm charts under `charts/all/`.
 
-Depending on the target environment, review and adapt:
-
-- OpenShift AI and Kueue Operator channels.
-- GPU node labels and tolerations.
-- GPU type and HardwareProfile values.
-- GPU quotas and borrowing limits.
-- Team namespaces and queues.
-- Model URIs and identifiers.
-- Number of GPUs per model replica.
-- vLLM and llm-d parameters.
-- MaaS endpoint configuration.
-- Smart Model Router model endpoints.
-- Monitoring configuration.
-
-The default HardwareProfile uses the generic accelerator configuration:
-
-```yaml
-displayName: NVIDIA GPU
-identifier: nvidia.com/gpu
-
-
+Once the pattern is installed, Argo CD manages and reconciles the desired state defined in the configured Git branch.
