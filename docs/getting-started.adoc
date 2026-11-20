@@ -12,23 +12,27 @@ include::modules/comm-attributes.adoc[]
 [id="prerequisites"]
 == Prerequisites
 
-This pattern assumes that the platform it runs on is already in place and ready to use. Subscriptions and entitlements, the installation of OpenShift, OpenShift AI and their Operators, the GPU stack, Model as a Service and the LLM models are outside the scope of the pattern and are not described here. The tested versions are listed under <<tested-environments,Tested environments>>.
+This pattern assumes that an OpenShift cluster is already available and ready to use. The pattern manages the required Red Hat OpenShift AI and Red Hat build of Kueue Operators through the Validated Patterns framework and configures the OpenShift AI components required by the solution, including Models as a Service.
+
+The underlying GPU hardware, GPU drivers and device enablement, subscriptions and entitlements, the LLM model artifacts, and environment-specific credentials remain prerequisites and are outside the scope of the pattern.
+
+The tested versions are listed under <<tested-environments,Tested environments>>.
 
 [id="platform-and-tools"]
 === Platform and tools
 
-* *Platform (already available):* An OpenShift cluster with GPU worker nodes and {rhoai}, with Red Hat build of Kueue integrated, Model as a Service enabled and user workload monitoring enabled.
-* *Models (already available):* The three models of the pattern, ready to use: Llama 3 8B Instruct (request classification), GPT-OSS-20B (simple requests) and Qwen3-32B (complex requests). The two answer models are reached through the MaaS endpoint.
+* *Platform (already available):* An OpenShift cluster with GPU-capable worker nodes and the required GPU stack configured. The pattern installs and manages the required Red Hat OpenShift AI and Red Hat build of Kueue Operators and applies the OpenShift AI configuration required by the solution.
+* *Models (already available):* The three models used by the pattern: Llama 3 8B Instruct (request classification), GPT-OSS-20B (simple requests) and Qwen3-32B (complex requests). The two answer models are exposed through Models as a Service (MaaS).
 * *Grafana (already available):* A Grafana instance that can query the metrics of the cluster. The pattern provides the dashboards.
-* *Command line interfaces:* The Red Hat OpenShift CLI (`+oc+`) and Podman must be installed. The `+pattern.sh+` script runs the container of the validated patterns framework with Podman, and the container includes the other tools needed for the installation, such as Helm.
-* *Additional tools:* For the other tooling dependencies, see the link:https://validatedpatterns.io/learn/quickstart/[Patterns quick start].
+* *Command line interfaces:* The Red Hat OpenShift CLI (`+oc+`) and Podman must be installed. The `+pattern.sh+` script runs the container of the Validated Patterns framework with Podman, and the container includes the other tools needed for the installation, such as Helm.
+* *Additional tools:* For the other tooling dependencies, see link:https://validatedpatterns.io/learn/quickstart/[Patterns quick start].
 
 [id="accounts-and-access"]
 === Accounts and access
 
 * *GitHub access:* A GitHub account, along with a personal access token that has repository read and write permissions.
-* *Cluster access:* Cluster administrator access to the OpenShift cluster, because the pattern creates cluster-scoped resources such as queues and priority classes.
-* *MaaS API key:* The API key used by the Smart Model Router to call the models through MaaS. It is not provided in the repository: you create and manage it on your side, according to the model you use.
+* *Cluster access:* Cluster administrator access to the OpenShift cluster, because the pattern installs Operators and creates cluster-scoped resources such as queues and priority classes.
+* *MaaS API key:* The API key used by the Smart Model Router to call the models through MaaS. It is not provided in the repository. You create and manage it on your side, according to the model you use, and store it as a Secret outside Git.
 
 [id="glossary"]
 == Glossary
@@ -57,7 +61,7 @@ This pattern assumes that the platform it runs on is already in place and ready 
 [id="key-concepts"]
 == Key concepts
 
-This section describes the concepts that are specific to this pattern. For the general concepts of the validated patterns framework (Helm, values files, ClusterGroups, GitOps, secrets and shared values), see the link:https://validatedpatterns.io/learn/about-validated-patterns/[validated patterns documentation].
+This section describes the concepts that are specific to this pattern. For the general concepts of the Validated Patterns framework (Helm, values files, ClusterGroups, GitOps, secrets and shared values), see link:https://validatedpatterns.io/learn/about-validated-patterns/[Validated Patterns documentation].
 
 [id="gpu-as-a-service-gpuaas"]
 === GPU as a Service (GPUaaS)
@@ -126,10 +130,14 @@ Priority is implemented with Kueue `+WorkloadPriorityClass+` objects (`+inferenc
 
 In the tested environment the cluster provides 12 NVIDIA A30 GPUs (6 nodes with 2 GPUs each), while the example cohort defines a nominal quota of 4 GPUs (3 for inference and 1 for training). The other GPUs are not part of the example. The quotas are logical: the ResourceFlavor selects every node that exposes an NVIDIA GPU.
 
+The HardwareProfile accelerator display name is generic (`+NVIDIA GPU+`) in the default chart configuration. It can be adapted to reflect the actual GPU model available in the target environment without modifying the chart templates.
+
 [id="model-as-a-service-maas"]
 === Model as a Service (MaaS)
 
-MaaS provides one governance layer for all AI models. It is made of three governance areas:
+MaaS provides one governance layer for all AI models. Models as a Service is enabled in the OpenShift AI configuration managed by the `+rhoai-config+` application.
+
+MaaS provides three governance areas:
 
 * *Access governance:* who can access which models.
 * *Consumption governance:* subscriptions, quotas and rate limits.
@@ -180,20 +188,25 @@ Observability is a centralized monitoring layer that provides real-time visibili
 [id="automation-breakdown"]
 == Automation breakdown
 
-The repository is a Helm-based validated pattern. Each deployable component is a Helm chart under `+charts/all/+`, deployed by one Argo CD application defined in the cluster group file. The charts focus on project-specific resources and do not duplicate the standard components already provided by {ocp} and OpenShift AI.
+The repository is a Helm-based Validated Pattern. The cluster group values file acts as the software bill of materials for the target cluster: it declares the namespaces, required Operator subscriptions and Argo CD applications managed by the pattern.
+
+The Red Hat OpenShift AI and Red Hat build of Kueue Operators are declared as subscriptions in `+variants/hub/values-hub.yaml+`. The `+rhoai-config+` application then applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement. Kueue remains unmanaged by the OpenShift AI `+DataScienceCluster+` because it is installed and managed separately through the Red Hat build of Kueue Operator.
 
 [cols="3,12",options="header"]
 |===
 |Path |Contents
 
+|`+charts/all/rhoai-config/+`
+|OpenShift AI configuration required by the pattern: DSCInitialization, DataScienceCluster and Models as a Service enablement.
+
 |`+charts/all/gpuaas/+`
-|GPU as a Service: namespaces, Kueue ResourceFlavors, cohort, priority classes, queues and OpenShift AI hardware profiles.
+|GPU as a Service: Kueue ResourceFlavors, cohort, priority classes, ClusterQueues, LocalQueues and OpenShift AI HardwareProfiles.
 
 |`+charts/all/gpuaas-monitoring/+`
 |Kueue monitoring: ServiceMonitor, RBAC, dashboard and an optional cluster-wide monitoring configuration.
 
 |`+charts/all/llm-d/+`
-|Parameterized `+LLMInferenceService+` resources for the two answer models, provided as a reference. The pattern assumes that the models are already deployed.
+|Parameterized `+LLMInferenceService+` resources for the two answer models, provided as a reference. The model artifacts and environment-specific model configuration must be adapted to the target environment.
 
 |`+charts/all/observability/+`
 |Six Grafana dashboards, three ServiceMonitors and NVIDIA GPU Operator alert rules.
@@ -202,7 +215,7 @@ The repository is a Helm-based validated pattern. Each deployable component is a
 |Smart Model Router: code and page, settings, Deployment, Service and Route.
 
 |`+values-global.yaml+`, `+variants/hub/values-hub.yaml+`
-|Validated patterns framework configuration: global settings and the five applications of the hub cluster group.
+|Validated Patterns framework configuration: global settings, managed namespaces, required Operator subscriptions and the applications of the hub cluster group.
 
 |`+Makefile+`, `+Makefile-common+`, `+pattern.sh+`
 |Entry points of the framework, including `+./pattern.sh make install+` and the validation targets.
@@ -217,24 +230,27 @@ The repository is a Helm-based validated pattern. Each deployable component is a
 |Documentation of the benchmarking and evaluation activities (GuideLLM and LM Evaluation Harness). It does not contain notebooks, commands, logs or results yet.
 
 |`+HELM_CONFIGURATION.md+`, `+VALIDATED_PATTERN.md+`
-|Reference for the chart values and for the validated pattern integration.
+|Reference for the chart values and for the Validated Pattern integration.
 
 |===
 
 [id="adapting-the-pattern-to-your-environment"]
 == Adapting the pattern to your environment
 
-The default values of the Helm charts reproduce the environment in which the pattern was tested: 6 nodes with 2 NVIDIA A30 GPUs each. They are examples to adapt, not requirements. Environment-specific values belong in separate values files or controlled Git commits, never in the chart templates, and credentials never belong in values.
+The default values of the Helm charts reflect the environment and use case in which the pattern was tested. They are examples to adapt, not infrastructure requirements. Environment-specific values belong in separate values files or controlled Git commits, never in the chart templates, and credentials never belong in values.
 
 [cols="5,6",options="header"]
 |===
 |What differs in your environment |Where to change it
 
+|Teams and namespaces
+|`+variants/hub/values-hub.yaml+`: `+clusterGroup.namespaces+`
+
 |Number of GPUs, quotas and borrowing limits
 |`+charts/all/gpuaas+`: `+clusterQueues[].resources.gpu+`
 
-|Teams, queues and namespaces
-|`+charts/all/gpuaas+`: `+namespaces[]+`, `+clusterQueues[]+`, `+localQueues[]+`
+|Queue configuration
+|`+charts/all/gpuaas+`: `+clusterQueues[]+`, `+localQueues[]+`
 
 |Priorities
 |`+charts/all/gpuaas+`: `+priorityClasses[]+`
@@ -242,8 +258,8 @@ The default values of the Helm charts reproduce the environment in which the pat
 |GPU node labels and tolerations
 |`+charts/all/gpuaas+`: `+resourceFlavors[]+`
 
-|Ranges offered by the hardware profiles
-|`+charts/all/gpuaas+`: `+hardwareProfiles.items[]+`
+|GPU type and ranges offered by the hardware profiles
+|`+charts/all/gpuaas+`: `+hardwareProfiles.items[].identifiers[]+`
 
 |Models: URI, replicas, GPUs per replica and vLLM arguments
 |`+charts/all/llm-d+`: `+models.<model>+`
@@ -251,7 +267,7 @@ The default values of the Helm charts reproduce the environment in which the pat
 |Endpoints and model identifiers of the router
 |`+charts/all/smart-model-router+`: `+maas+`, `+models+` and `+classifier+`
 
-|Monitoring objects whose target workloads do not exist
+|Monitoring objects whose target workloads, namespaces or metrics services do not exist
 |`+enabled+` flags in `+charts/all/observability+` and `+charts/all/gpuaas-monitoring+`
 
 |===
@@ -259,9 +275,11 @@ The default values of the Helm charts reproduce the environment in which the pat
 [id="gpus-with-a-different-amount-of-memory"]
 === GPUs with a different amount of memory
 
-Kueue counts GPUs as devices, not gigabytes: the memory of a GPU does not appear in the queues. Whether a model fits depends on values of the `+llm-d+` chart: the number of GPUs per replica, the vLLM arguments (`+--tensor-parallel-size+`, `+--max-model-len+` and `+--gpu-memory-utilization+`) and the model itself (`+uri+`). The defaults, for example Qwen3-32B in FP8 on 2 GPUs of 24 GB, are tuned for the tested GPUs.
+Kueue counts GPUs as devices, not gigabytes: the memory of a GPU does not appear in the queues. Whether a model fits depends on values of the `+llm-d+` chart: the number of GPUs per replica, the vLLM arguments (`+--tensor-parallel-size+`, `+--max-model-len+` and `+--gpu-memory-utilization+`) and the model itself (`+uri+`).
 
-As a rough guide, the weights of a model occupy about its number of parameters times the bytes per parameter (about 32 GB for a model of 32 billion parameters in FP8), plus the KV cache and some margin. With GPUs that have less memory, adapt together the GPUs per replica and the tensor parallelism, the maximum context length, or the model. If a model needs more GPUs per replica, review also the queue quotas and the maximum of the hardware profile: with 4 GPUs per replica, the example inference queue would host a single replica.
+The tested environment uses NVIDIA A30 GPUs. The GPU type displayed by the HardwareProfiles is configurable through the chart values and is not a requirement of the pattern.
+
+As a rough guide, the weights of a model occupy about its number of parameters times the bytes per parameter (about 32 GB for a model of 32 billion parameters in FP8), plus the KV cache and some margin. With GPUs that have less memory, adapt together the GPUs per replica and the tensor parallelism, the maximum context length, or the model. If a model needs more GPUs per replica, review also the queue quotas and the maximum of the hardware profile.
 
 [id="technical-requirements"]
 == Technical requirements
@@ -272,7 +290,7 @@ Source code repository: https://github.com/acicrome/ai-optimization.git
 branch: validated-pattern
 ----
 
-The Helm configuration of the pattern is currently available only in the `+validated-pattern+` branch of the repository. The `+main+` branch does not contain it. Use that branch until a dedicated location for the pattern is defined.
+The Helm configuration of the pattern is currently available in the `+validated-pattern+` branch of the repository. Use that branch until a dedicated location for the pattern is defined.
 
 [id="tested-environments"]
 === Tested environments
@@ -295,7 +313,7 @@ The Helm configuration of the pattern is currently available only in the `+valid
 
 |===
 
-OpenShift 4.20 is within the OpenShift versions supported by OpenShift AI 3.4.
+OpenShift 4.20 is within the OpenShift versions supported by the tested OpenShift AI environment.
 
 [id="network-requirements"]
 === Network requirements
@@ -304,7 +322,8 @@ For connected environments:
 
 . Access to public container registries.
 . Access to GitHub repositories.
-. Access to `+quay.io+`, from which `+pattern.sh+` pulls the container image of the framework, and to the validated patterns Helm chart repository (`+charts.validatedpatterns.io+`).
+. Access to `+quay.io+`, from which `+pattern.sh+` pulls the container image of the framework, and to the Validated Patterns Helm chart repository (`+charts.validatedpatterns.io+`).
+. Access to the Operator catalogs required to install the Red Hat OpenShift AI and Red Hat build of Kueue Operators.
 
 [id="security-considerations"]
 === Security considerations
@@ -312,7 +331,7 @@ For connected environments:
 * Do not commit passwords, access tokens, private keys or other secrets in plaintext.
 * Manage credentials through Kubernetes/OpenShift Secrets or a dedicated secret-management solution.
 * Avoid hardcoding environment-specific hostnames, addresses and parameters when they can be managed through environment-specific configuration.
-* The charts do not render any Secret. The MaaS API key of the Smart Model Router is not provided in the repository: you create and manage it on your side, according to the model you use, and store it as a Secret outside Git.
+* The charts do not render the MaaS API key Secret. The MaaS API key of the Smart Model Router is not provided in the repository: you create and manage it on your side, according to the model you use, and store it as a Secret outside Git.
 
 [id="sizing-of-the-hub-cluster"]
 === Sizing of the hub cluster
@@ -332,11 +351,13 @@ For connected environments:
 
 |===
 
+The sizing above describes the environment used to test the pattern and is not a fixed infrastructure requirement. GPU capacity, quotas and model sizing must be adapted to the target environment.
+
 [id="consuming-a-pattern"]
 == Consuming a pattern
 
 .Procedure
-. Make sure that the platform described in the prerequisites is available.
+. Make sure that the OpenShift cluster and GPU infrastructure described in the prerequisites are available.
 . Install the OpenShift CLI, available at link:https://console.redhat.com/openshift/downloads[Red Hat OpenShift downloads], and Podman.
 . Log in to the OpenShift cluster. The `+KUBECONFIG+` file must be below your home directory, because `+pattern.sh+` mounts it into the container of the framework:
 +
@@ -381,13 +402,15 @@ $ git remote -v
 $ git switch -c my-branch upstream/validated-pattern
 ----
 
-. Review the values of the charts and adapt them to your environment (see <<adapting-the-pattern-to-your-environment,Adapting the pattern to your environment>>). In particular:
-* match the Kueue quotas, the GPU node labels, the queue namespaces and the hardware profiles to the real capacity of your cluster;
+. Review the pattern values and adapt them to your environment (see <<adapting-the-pattern-to-your-environment,Adapting the pattern to your environment>>). In particular:
+* match the Kueue quotas, GPU node labels, queue namespaces and HardwareProfiles to the real capacity of the cluster;
+* adapt the GPU display name in the HardwareProfiles if you want it to reflect the GPU model available in the target environment;
 * replace the placeholder endpoints and model identifiers of the Smart Model Router (`+maas.url+`, `+models+` and `+classifier+` in the chart values);
+* configure the `+llm-d+` model values according to the model artifacts, number of GPUs per replica and serving configuration available in the target environment;
 * decide whether to enable the cluster-wide monitoring configuration of the `+gpuaas-monitoring+` chart: it updates the `+cluster-monitoring-config+` ConfigMap of `+openshift-monitoring+` and has a cluster-wide effect, so disable it if that configuration is managed elsewhere;
-* disable the observability objects whose target workloads, namespaces or metrics services do not exist;
-* check the `+llm-d+` chart: it is enabled by default and deploys the two `+LLMInferenceService+` resources, so disable it if the models are already deployed.
-. Optional: Validate the charts before the installation. The command runs in the container of the framework and writes the rendered manifests to `+dist/rendered/+`:
+* disable the observability objects whose target workloads, namespaces or metrics services do not exist.
+
+. Optional: Validate the charts before the installation. The validation runs strict `+helm lint+` and `+helm template+` checks for the pattern charts.
 +
 [source,terminal]
 ----
@@ -403,7 +426,7 @@ $ oc create secret generic smart-router-maas-credentials \
     --from-literal=MAAS_API_KEY='<api-key>'
 ----
 
-. Commit your changes and push them to your fork: the pattern is deployed from the Git repository and the branch that you point to.
+. Commit your environment-specific changes and push them to your fork:
 +
 [source,terminal]
 ----
@@ -412,7 +435,7 @@ $ git commit -m "Adapt the pattern values to my environment"
 $ git push -u origin my-branch
 ----
 
-. Install the pattern. The installation sets up {rh-gitops-short} (Argo CD) and the {validated-patterns-op}, which then deploy the charts: you do not need to install them beforehand. By default it uses the `+origin+` remote and the current branch of your clone, and you can override them:
+. Install the pattern. The installation sets up {rh-gitops-short} (Argo CD) and the {validated-patterns-op}. The Validated Patterns framework manages the namespaces and installs the required Red Hat OpenShift AI and Red Hat build of Kueue Operators from the subscriptions declared in `+variants/hub/values-hub.yaml+`. The `+rhoai-config+` application then applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement.
 +
 [source,terminal]
 ----
@@ -421,18 +444,20 @@ $ export TARGET_BRANCH=my-branch
 $ ./pattern.sh make install
 ----
 
-. Wait for the five Argo CD applications (`+gpuaas+`, `+gpuaas-monitoring+`, `+llm-d+`, `+observability+` and `+smart-model-router+`) to synchronize.
+. Wait for the six Argo CD applications (`+rhoai-config+`, `+gpuaas+`, `+gpuaas-monitoring+`, `+llm-d+`, `+observability+` and `+smart-model-router+`) to synchronize.
 
 .Verification
 [source,terminal]
 ----
+$ oc get subscriptions -A
+$ oc get datasciencecluster,dscinitialization
 $ oc get applications -A
 $ oc get clusterqueues
 $ oc -n smart-model-router rollout status deployment/smart-model-router
 $ oc -n smart-model-router get pods,service,route
 ----
 
-A synchronized application does not guarantee admission or scheduling: check the Kueue status and the actual GPU availability.
+A synchronized application does not guarantee admission or scheduling. Check the Kueue status and actual GPU availability before running workloads.
 
 [id="using-the-pattern-demo-use-case"]
 == Using the pattern: demo use case
@@ -451,7 +476,7 @@ image::request-flow.png[End-to-end request flow]
 . The selected model generates the response.
 . The response is returned to the user.
 
-The demo uses two answer models that are already available through the MaaS endpoint: Qwen3-32B (FP8 variant) for complex requests and GPT-OSS-20B for simple requests. The Smart Model Router uses a Llama 3 8B Instruct classifier to choose between them.
+The demo uses two answer models that are available through the MaaS endpoint: Qwen3-32B (FP8 variant) for complex requests and GPT-OSS-20B for simple requests. The Smart Model Router uses a Llama 3 8B Instruct classifier to choose between them.
 
 *GPU resource management*
 
@@ -480,21 +505,35 @@ Usage, performance and GPU metrics are visualized through Grafana dashboards: mo
 [id="testing"]
 == Testing
 
-* *Verify the Argo CD applications.* Confirm that the five applications are synchronized and healthy.
+* *Verify the required Operators.* Confirm that the Red Hat OpenShift AI and Red Hat build of Kueue Operator subscriptions are installed and healthy.
++
+[source,terminal]
+----
+$ oc get subscriptions -A
+----
+
+* *Verify the OpenShift AI configuration.* Confirm that `+default-dsci+` and `+default-dsc+` are present after the `+rhoai-config+` application synchronizes.
++
+[source,terminal]
+----
+$ oc get datasciencecluster,dscinitialization
+----
+
+* *Verify the Argo CD applications.* Confirm that the six applications are synchronized and healthy.
 +
 [source,terminal]
 ----
 $ oc get applications -A
 ----
 
-* *Validate the charts.* Run the local validation: it runs strict `+helm lint+` and `+helm template+` for every chart, plus structure checks.
+* *Validate the charts.* Run the local validation. It runs strict `+helm lint+` and `+helm template+` checks for the pattern charts.
 +
 [source,terminal]
 ----
 $ ./pattern.sh make validate
 ----
 
-* *Verify the GPU as a Service configuration.* Confirm that the queues, the ResourceFlavors and the HardwareProfiles defined for your GPU structure exist and match the expected quotas and priorities.
+* *Verify the GPU as a Service configuration.* Confirm that the queues, ResourceFlavors and HardwareProfiles defined for your GPU structure exist and match the expected quotas and priorities.
 +
 [source,terminal]
 ----
@@ -512,7 +551,7 @@ $ oc get localqueues -A
 $ oc get workloads -A
 ----
 
-* *Verify the Smart Model Router.* Check the rollout, then call the `+/health+` endpoint through the generated Route and send one simple and one complex request: the `+router+` field of the response reports the route and the model that were selected.
+* *Verify the Smart Model Router.* Check the rollout, then call the `+/health+` endpoint through the generated Route and send one simple and one complex request. The `+router+` field of the response reports the route and the model that were selected.
 +
 [source,terminal]
 ----
