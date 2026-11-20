@@ -2,10 +2,7 @@
 nameOverride: ""
 fullnameOverride: smart-model-router
 namespace:
-  create: true
   name: smart-model-router
-  labels:
-    app.kubernetes.io/name: smart-model-router
 
 replicaCount: 1
 image:

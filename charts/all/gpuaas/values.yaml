@@ -1,16 +1,4 @@
 ---
-namespaces:
-  - name: team-inference
-    labels:
-      kubernetes.io-metadata.name: team-inference
-      opendatahub.io/dashboard: "true"
-      kueue.openshift.io/managed: "true"
-  - name: team-training
-    labels:
-      kubernetes.io-metadata.name: team-training
-      opendatahub.io/dashboard: "true"
-      kueue.openshift.io/managed: "true"
-
 resourceFlavors:
   - name: default-flavor
   - name: gpu-flavor
@@ -100,7 +88,7 @@ hardwareProfiles:
           minCount: 2Gi
           resourceType: Memory
         - defaultCount: 1
-          displayName: NVIDIA L4
+          displayName: NVIDIA GPU
           identifier: nvidia.com/gpu
           maxCount: 4
           minCount: 1
@@ -124,7 +112,7 @@ hardwareProfiles:
           minCount: 2Gi
           resourceType: Memory
         - defaultCount: 1
-          displayName: NVIDIA L4
+          displayName: NVIDIA GPU
           identifier: nvidia.com/gpu
           maxCount: 3
           minCount: 1

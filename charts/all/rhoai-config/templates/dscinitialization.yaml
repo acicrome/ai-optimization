@@ -1,0 +1,15 @@
+---
+apiVersion: dscinitialization.opendatahub.io/v2
+kind: DSCInitialization
+metadata:
+  name: {{ .Values.dscInitialization.name | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "-10"
+spec:
+  applicationsNamespace: redhat-ods-applications
+  monitoring:
+    managementState: Managed
+  trustedCABundle:
+    customCABundle: ""
+    managementState: Managed

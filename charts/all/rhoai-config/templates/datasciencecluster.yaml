@@ -1,0 +1,31 @@
+---
+apiVersion: datasciencecluster.opendatahub.io/v2
+kind: DataScienceCluster
+metadata:
+  name: {{ .Values.dataScienceCluster.name | quote }}
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  components:
+    dashboard:
+      managementState: Managed
+
+    kserve:
+      managementState: Managed
+      modelsAsService:
+        managementState: Managed
+
+    kueue:
+      managementState: Unmanaged
+      autoCreateQueues: false
+
+    trainer:
+      managementState: Managed
+
+    trainingoperator:
+      managementState: Managed
+
+    workbenches:
+      managementState: Managed
+      workbenchNamespace: rhods-notebooks

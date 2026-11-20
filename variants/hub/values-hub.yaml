@@ -1,6 +1,5 @@
 ---
-# All applications point to source-backed Helm charts. Platform Operators and
-# external prerequisites are deliberately not installed by this pattern.
+# Applications, namespaces, and required Operators managed by the Validated Patterns framework.
 clusterGroup:
   name: hub
   isHubCluster: true
@@ -8,7 +7,51 @@ clusterGroup:
   argoProjects:
     - ai-optimization
 
+  namespaces:
+    redhat-ods-operator: {}
+
+    openshift-kueue-operator: {}
+
+    team-inference:
+      labels:
+        kubernetes.io/metadata.name: team-inference
+        opendatahub.io/dashboard: "true"
+        kueue.openshift.io/managed: "true"
+      annotations:
+        argocd.argoproj.io/sync-wave: "-20"
+
+    team-training:
+      labels:
+        kubernetes.io/metadata.name: team-training
+        opendatahub.io/dashboard: "true"
+        kueue.openshift.io/managed: "true"
+      annotations:
+        argocd.argoproj.io/sync-wave: "-20"
+
+    smart-model-router:
+      labels:
+        app.kubernetes.io/name: smart-model-router
+      annotations:
+        argocd.argoproj.io/sync-wave: "-10"
+
+  subscriptions:
+    - name: rhods-operator
+      namespace: redhat-ods-operator
+      channel: stable-3.5
+      source: redhat-operators
+
+    - name: kueue-operator
+      namespace: openshift-kueue-operator
+      channel: stable-v1.3
+      source: redhat-operators
+
   applications:
+    rhoai-config:
+      name: rhoai-config
+      namespace: redhat-ods-applications
+      argoProject: ai-optimization
+      path: charts/all/rhoai-config
+
     gpuaas:
       name: gpuaas
       namespace: team-inference

@@ -1,0 +1,6 @@
+---
+dscInitialization:
+  name: default-dsci
+
+dataScienceCluster:
+  name: default-dsc
