@@ -12,7 +12,9 @@ include::modules/comm-attributes.adoc[]
 [id="prerequisites"]
 == Prerequisites
 
-This pattern assumes that an OpenShift cluster is already available and ready to use. The pattern manages the required Red Hat OpenShift AI and Red Hat build of Kueue Operators through the Validated Patterns framework and configures the OpenShift AI components required by the solution, including Models as a Service.
+This pattern assumes that an OpenShift cluster is already available and ready to use.
+
+The pattern manages the required Red Hat OpenShift AI and Red Hat build of Kueue Operators through the Validated Patterns framework and configures the OpenShift AI components required by the solution, including Models as a Service.
 
 The underlying GPU hardware, GPU drivers and device enablement, subscriptions and entitlements, the LLM model artifacts, and environment-specific credentials remain prerequisites and are outside the scope of the pattern.
 
@@ -40,38 +42,38 @@ The tested versions are listed under <<tested-environments,Tested environments>>
 * *{rh-ocp} (OCP):* An enterprise Kubernetes platform used to build, deploy and manage containerized applications at scale.
 * *{rhoai} (RHOAI):* The platform used to serve models, run training and fine-tuning workloads, and expose model consumption to users.
 * *GPU as a Service (GPUaaS):* A centralized service that exposes GPU resources as a shared pool across the organization, governed by policy.
-* *Model as a Service (MaaS):* A centralized platform that exposes, consumes and governs AI models (self-hosted and external) through a single endpoint.
+* *Model as a Service (MaaS):* A centralized platform that exposes, consumes and governs AI models through a single governed endpoint.
 * *Red Hat build of Kueue:* The Kubernetes-native job queueing system on which GPU as a Service is built.
 * *Cohort:* A group of ClusterQueues that share unused capacity, so that one queue can borrow resources that another queue does not currently use.
 * *ClusterQueue:* A cluster-scoped queue that defines the guaranteed quota, borrowing limits, maximum capacity and priority of a class of workloads.
 * *LocalQueue:* A namespaced queue that connects the workloads of a team to a ClusterQueue.
-* *HardwareProfile:* A standardized GPU configuration (for example, a GPU range) that users select when deploying training or inference workloads.
-* *ResourceFlavor:* Describes a type of resource (for example, a GPU model or a pool of nodes) that the queues can allocate.
+* *HardwareProfile:* A standardized GPU configuration that users select when deploying training or inference workloads.
+* *ResourceFlavor:* Describes a type of resource, for example a GPU pool or group of GPU-capable nodes, that the queues can allocate.
 * *Priority class:* Defines the relative priority of workloads, used to decide which ones are admitted first and which ones can be preempted.
-* *Smart Model Router:* The component that classifies each request and selects the most suitable model. It works on two levels: simple requests are sent to a smaller model (GPT-OSS-20B) and complex requests to a larger one (Qwen3-32B). A classifier model (Llama 3 8B Instruct) takes the decision. In the repository it is delivered as a reference implementation: application configuration, Deployment, Service and Route.
+* *Smart Model Router:* The component that classifies each request and selects the most suitable model. Simple requests are sent to GPT-OSS-20B and complex requests to Qwen3-32B. A Llama 3 8B Instruct classifier makes the routing decision.
 * *llm-d:* A Kubernetes-native distributed inference framework that adds smart routing and KV cache-aware scheduling on top of vLLM.
 * *vLLM:* The inference engine that serves the models.
-* *KV cache:* The cached attention state of previously processed tokens. Reusing it avoids repeating the prefill computation and reduces latency.
+* *KV cache:* The cached attention state of previously processed tokens. Reusing it avoids repeating prefill computation and reduces latency.
 * *Token:* The unit of text processed by a model. Token consumption is the main driver of AI costs and the unit that MaaS measures and limits.
-* *GuideLLM:* A tool that generates inference workloads and measures serving performance (throughput, time to first token, inter-token latency) under configurable load.
-* *LM Evaluation Harness (`+lm-eval+`):* A framework that evaluates the quality of a model on selected tasks and datasets.
-* *Helm chart:* A package of parameterized Kubernetes manifests. Its default values can be overridden for each environment without changing the templates.
-* *Argo CD application:* A GitOps resource that keeps a cluster in sync with a path of a Git repository. In this pattern, each Helm chart is deployed by one application.
+* *GuideLLM:* A tool that generates inference workloads and measures serving performance, including throughput, time to first token and inter-token latency.
+* *LM Evaluation Harness (`+lm-eval+`):* A framework that evaluates model quality on selected tasks and datasets.
+* *Helm chart:* A package of parameterized Kubernetes manifests. Default values can be overridden for each environment without modifying the chart templates.
+* *Argo CD application:* A GitOps resource that keeps a cluster synchronized with a path in a Git repository.
 
 [id="key-concepts"]
 == Key concepts
 
-This section describes the concepts that are specific to this pattern. For the general concepts of the Validated Patterns framework (Helm, values files, ClusterGroups, GitOps, secrets and shared values), see link:https://validatedpatterns.io/learn/about-validated-patterns/[Validated Patterns documentation].
+This section describes concepts specific to this pattern. For general concepts of the Validated Patterns framework, including Helm, values files, ClusterGroups, GitOps, secrets and shared values, see link:https://validatedpatterns.io/learn/about-validated-patterns/[Validated Patterns documentation].
 
 [id="gpu-as-a-service-gpuaas"]
 === GPU as a Service (GPUaaS)
 
 GPUaaS is a centralized service built on Red Hat build of Kueue. It exposes GPU resources as a shared pool across the organization and provides:
 
-* Policy-driven access and quota management, to ensure fair resource allocation across teams and projects.
-* Priority-based scheduling, to guarantee that critical workloads receive resources first.
-* Dynamic capacity sharing: unused GPU resources can be borrowed and are automatically reclaimed when needed.
-* Full visibility: who uses what, when and why.
+* Policy-driven access and quota management to ensure fair resource allocation across teams and projects.
+* Priority-based scheduling to ensure that critical workloads receive resources first.
+* Dynamic capacity sharing, allowing unused GPU capacity to be borrowed and reclaimed when required.
+* Visibility into GPU usage and allocation.
 
 The service is built from four components, as shown in the following diagram.
 
@@ -84,7 +86,7 @@ image::gpuaas-kueue.png[GPU as a Service component hierarchy (example configurat
 
 |1
 |Cohort
-|Pools GPU resources into a shared capacity
+|Pools GPU resources into shared capacity
 
 |2
 |ClusterQueues
@@ -100,15 +102,17 @@ image::gpuaas-kueue.png[GPU as a Service component hierarchy (example configurat
 
 |===
 
-The table below shows an example configuration, based on a cohort of 4 GPUs. It reflects the environment in which the pattern was tested. The structure of the GPUs, the queues, the quotas and the priorities depend on each environment and are meant to be adapted: the names and the values in this section are illustrative only.
+The following table shows an example configuration based on a cohort of 4 GPUs. It reflects the environment in which the pattern was tested.
+
+The structure of the GPUs, queues, quotas and priorities depends on the target environment. The names and values in this section are illustrative and configurable.
 
 [cols="1,1,1,1,1,4,3",options="header"]
 |===
 |Queue |Guaranteed |Borrow up to |Max |Priority |Local queue / namespace |HardwareProfile
 
 |`+inference-cq+`
-|3 GPU
-|1
+|3 GPUs
+|1 GPU
 |4 GPUs
 |1000
 |`+team-inference+` / `+team-inference+`
@@ -116,7 +120,7 @@ The table below shows an example configuration, based on a cohort of 4 GPUs. It 
 
 |`+training-cq+`
 |1 GPU
-|2
+|2 GPUs
 |3 GPUs
 |100
 |`+team-training+` / `+team-training+`
@@ -124,33 +128,41 @@ The table below shows an example configuration, based on a cohort of 4 GPUs. It 
 
 |===
 
-In this example, inference workloads are guaranteed 3 of the 4 GPUs and can borrow the remaining one, while fine-tuning workloads are guaranteed 1 GPU and can borrow up to 2 more when inference does not use them. When inference needs its capacity back, the borrowed GPUs are reclaimed.
+In this example, inference workloads are guaranteed 3 of the 4 GPUs and can borrow the remaining GPU, while fine-tuning workloads are guaranteed 1 GPU and can borrow up to 2 additional GPUs when inference does not use them.
 
-Priority is implemented with Kueue `+WorkloadPriorityClass+` objects (`+inference-priority+`, value 1000, and `+training-priority+`, value 100), which the hardware profiles reference together with the local queue of each team.
+When inference requires its guaranteed capacity again, the borrowed GPUs can be reclaimed.
 
-In the tested environment the cluster provides 12 NVIDIA A30 GPUs (6 nodes with 2 GPUs each), while the example cohort defines a nominal quota of 4 GPUs (3 for inference and 1 for training). The other GPUs are not part of the example. The quotas are logical: the ResourceFlavor selects every node that exposes an NVIDIA GPU.
+Priority is implemented with Kueue `+WorkloadPriorityClass+` objects (`+inference-priority+`, value 1000, and `+training-priority+`, value 100), which the HardwareProfiles reference together with the LocalQueue of each team.
 
-The HardwareProfile accelerator display name is generic (`+NVIDIA GPU+`) in the default chart configuration. It can be adapted to reflect the actual GPU model available in the target environment without modifying the chart templates.
+In the tested environment, the cluster provides 12 NVIDIA A30 GPUs across 6 nodes with 2 GPUs per node. The example cohort defines a nominal quota of 4 GPUs: 3 for inference and 1 for training.
+
+The remaining GPUs are not included in the example cohort. The quotas are logical and can be adapted to the target environment.
+
+The default HardwareProfile uses the generic display name `+NVIDIA GPU+`. The displayed GPU type can be changed through the chart values to match the hardware available in the target environment without modifying the Helm templates.
 
 [id="model-as-a-service-maas"]
 === Model as a Service (MaaS)
 
-MaaS provides one governance layer for all AI models. Models as a Service is enabled in the OpenShift AI configuration managed by the `+rhoai-config+` application.
+MaaS provides a governance layer for AI model consumption.
+
+Models as a Service is enabled through the OpenShift AI configuration managed by the `+rhoai-config+` application.
 
 MaaS provides three governance areas:
 
-* *Access governance:* who can access which models.
-* *Consumption governance:* subscriptions, quotas and rate limits.
-* *Token governance:* measure, price and control every token.
+* *Access governance:* controls who can access which models.
+* *Consumption governance:* manages subscriptions, quotas and rate limits.
+* *Token governance:* measures and controls token consumption.
 
-The models are exposed as secure, controlled API endpoints through centralized gateways, with rate limiting and access control.
+Models are exposed as controlled API endpoints through centralized gateways with rate limiting and access control.
 
 A request is processed as follows:
 
 . The user generates an API key from the {rhoai} dashboard.
-. The application sends a request to the MaaS endpoint. An `+AuthPolicy+` validates the token through an internal API.
-. A `+TokenRateLimitPolicy+` enforces the limits and the request is routed to the model.
-. The response is returned to the caller, governed, logged and rate-limited.
+. The application sends a request to the MaaS endpoint.
+. An `+AuthPolicy+` validates access.
+. A `+TokenRateLimitPolicy+` enforces the configured consumption limits.
+. The request is routed to the selected model.
+. The response is returned to the caller and its consumption is tracked.
 
 .MaaS request flow
 image::maas-request-flow.png[MaaS request flow]
@@ -158,90 +170,120 @@ image::maas-request-flow.png[MaaS request flow]
 [id="smart-model-router-and-dynamic-model-selection"]
 === Smart Model Router and dynamic model selection
 
-Traditional AI deployments rely on static model assignment: the same model serves every task. In this pattern, the Smart Model Router classifies each request and selects the most suitable model according to its complexity, balancing performance, cost and resource efficiency. The routing has two levels: simple requests are served by a smaller model, and only the requests classified as complex reach the larger one. This lowers AI costs, selects the best model for each task and reduces latency.
+Traditional AI deployments frequently rely on static model assignment, where the same model serves every task.
 
-The Smart Model Router is delivered as the `+smart-model-router+` Helm chart (`+charts/all/smart-model-router/+`), which contains its application code and page, its settings, and the Deployment, Service and Route that expose it. The API key used to call the models through MaaS is not provided in the repository. You create and manage it on your side, according to the model you use, and store it as a Secret outside Git.
+In this pattern, the Smart Model Router classifies each request and selects the most suitable model according to its complexity, balancing performance, cost and resource efficiency.
 
-It is a reference implementation of this approach, created for the pattern. A classifier model (Llama 3 8B Instruct) labels each request as simple or complex. Simple requests are sent to GPT-OSS-20B and complex requests to Qwen3-32B, both through the MaaS endpoint. The classifier is called directly inside the cluster, while the two answer models are called through MaaS. If the classifier is unavailable, the router falls back to heuristics based on the length of the request and on complexity keywords (in English and Italian).
+The routing has two levels:
+
+* Simple requests are served by GPT-OSS-20B.
+* Complex requests are served by Qwen3-32B.
+
+A Llama 3 8B Instruct classifier determines the routing decision.
+
+The Smart Model Router is delivered through the `+smart-model-router+` Helm chart at `+charts/all/smart-model-router/+`. The chart contains the application code, configuration, Deployment, Service and Route.
+
+The MaaS API key is not committed to the repository. It must be created as a Kubernetes Secret outside Git.
+
+If the classifier is unavailable, the reference implementation falls back to heuristics based on request length and complexity keywords.
 
 [id="llm-d"]
 === llm-d
 
-llm-d is a Kubernetes-native distributed inference framework that optimizes how models are served at scale. It sits between the requests and the vLLM inference pods and provides:
+llm-d is a Kubernetes-native distributed inference framework that optimizes how models are served at scale.
 
-* *Intelligent request routing:* each request goes to the best replica according to cache locality and runtime telemetry.
-* *KV cache-aware scheduling:* previously computed context is reused to skip prefill computations and reduce latency.
-* *Distributed inference scaling:* horizontal scaling across replicas and accelerators to handle high concurrency.
+It sits between requests and the vLLM inference pods and provides:
+
+* *Intelligent request routing:* each request is sent to the most appropriate replica based on cache locality and runtime telemetry.
+* *KV cache-aware scheduling:* previously computed context can be reused to reduce repeated prefill computation and latency.
+* *Distributed inference scaling:* requests can be distributed across replicas and accelerators to support higher concurrency.
 
 [id="observability"]
 === Observability
 
-Observability is a centralized monitoring layer that provides real-time visibility into AI infrastructure, model consumption and operational performance. Usage, performance and GPU metrics are collected and visualized through Grafana dashboards. The pattern covers:
+Observability provides centralized visibility into AI infrastructure, model consumption and operational performance.
+
+Usage, performance and GPU metrics are collected and visualized through Grafana dashboards.
+
+The pattern covers:
 
 * *Model performance:* latency, throughput, error rates and quality.
 * *Token consumption:* usage analytics, quotas and trends.
 * *API and request metrics:* requests, responses and success/failure rates.
 * *GPU utilization:* utilization, allocation, temperature and memory.
-* *Training jobs status:* job tracking, duration, status and events.
+* *Training job status:* job tracking, duration, status and events.
 * *Logging and audit:* centralized logs.
 
 [id="automation-breakdown"]
 == Automation breakdown
 
-The repository is a Helm-based Validated Pattern. The cluster group values file acts as the software bill of materials for the target cluster: it declares the namespaces, required Operator subscriptions and Argo CD applications managed by the pattern.
+The repository is a Helm-based Validated Pattern.
 
-The Red Hat OpenShift AI and Red Hat build of Kueue Operators are declared as subscriptions in `+variants/hub/values-hub.yaml+`. The `+rhoai-config+` application then applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement. Kueue remains unmanaged by the OpenShift AI `+DataScienceCluster+` because it is installed and managed separately through the Red Hat build of Kueue Operator.
+The cluster group values file acts as the software bill of materials for the target cluster. It declares the namespaces, required Operator subscriptions and Argo CD applications managed by the pattern.
+
+The Red Hat OpenShift AI and Red Hat build of Kueue Operators are declared as subscriptions in `+variants/hub/values-hub.yaml+`.
+
+The `+rhoai-config+` application applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement.
+
+Kueue remains unmanaged by the OpenShift AI `+DataScienceCluster+` because it is installed and managed separately through the Red Hat build of Kueue Operator. GPU queues and related resources are then configured by the `+gpuaas+` application.
 
 [cols="3,12",options="header"]
 |===
 |Path |Contents
 
 |`+charts/all/rhoai-config/+`
-|OpenShift AI configuration required by the pattern: DSCInitialization, DataScienceCluster and Models as a Service enablement.
+|OpenShift AI configuration required by the pattern: `+DSCInitialization+`, `+DataScienceCluster+` and Models as a Service enablement.
 
 |`+charts/all/gpuaas/+`
 |GPU as a Service: Kueue ResourceFlavors, cohort, priority classes, ClusterQueues, LocalQueues and OpenShift AI HardwareProfiles.
 
 |`+charts/all/gpuaas-monitoring/+`
-|Kueue monitoring: ServiceMonitor, RBAC, dashboard and an optional cluster-wide monitoring configuration.
+|Kueue monitoring: ServiceMonitor, RBAC, dashboard and optional cluster-wide monitoring configuration.
 
 |`+charts/all/llm-d/+`
-|Parameterized `+LLMInferenceService+` resources for the two answer models, provided as a reference. The model artifacts and environment-specific model configuration must be adapted to the target environment.
+|Parameterized `+LLMInferenceService+` resources for the answer models. Model artifacts and environment-specific serving configuration must be adapted to the target environment.
 
 |`+charts/all/observability/+`
-|Six Grafana dashboards, three ServiceMonitors and NVIDIA GPU Operator alert rules.
+|Grafana dashboards, ServiceMonitors and GPU-related alerting resources.
 
 |`+charts/all/smart-model-router/+`
-|Smart Model Router: code and page, settings, Deployment, Service and Route.
+|Smart Model Router application, configuration, Deployment, Service and Route.
 
 |`+values-global.yaml+`, `+variants/hub/values-hub.yaml+`
-|Validated Patterns framework configuration: global settings, managed namespaces, required Operator subscriptions and the applications of the hub cluster group.
+|Validated Patterns framework configuration containing global settings, managed namespaces, required Operator subscriptions and the applications of the hub cluster group.
 
 |`+Makefile+`, `+Makefile-common+`, `+pattern.sh+`
-|Entry points of the framework, including `+./pattern.sh make install+` and the validation targets.
+|Validated Patterns framework entry points, including installation and validation targets.
 
 |`+.github/workflows/+`, `+scripts/+`
-|Continuous validation: strict Helm lint and template for every chart, plus structure checks.
+|Continuous validation, including strict Helm linting, template rendering and structure checks.
 
 |`+training/+`
 |Notebook for distributed fine-tuning with Kubeflow Trainer and Kueue.
 
 |`+benchmarking/+`
-|Documentation of the benchmarking and evaluation activities (GuideLLM and LM Evaluation Harness). It does not contain notebooks, commands, logs or results yet.
+|Documentation for benchmarking and evaluation activities using GuideLLM and LM Evaluation Harness.
 
 |`+HELM_CONFIGURATION.md+`, `+VALIDATED_PATTERN.md+`
-|Reference for the chart values and for the Validated Pattern integration.
+|Reference documentation for Helm values and Validated Pattern integration.
 
 |===
 
 [id="adapting-the-pattern-to-your-environment"]
 == Adapting the pattern to your environment
 
-The default values of the Helm charts reflect the environment and use case in which the pattern was tested. They are examples to adapt, not infrastructure requirements. Environment-specific values belong in separate values files or controlled Git commits, never in the chart templates, and credentials never belong in values.
+The default values provided by the pattern represent a validated reference configuration and are intended to be adapted to the target environment.
+
+They are not fixed infrastructure, hardware or software-version requirements.
+
+Environment-specific values belong in the appropriate values files or in controlled Git commits. Credentials and other sensitive information must never be stored in the repository.
 
 [cols="5,6",options="header"]
 |===
 |What differs in your environment |Where to change it
+
+|OpenShift AI and Kueue Operator channels
+|`+variants/hub/values-hub.yaml+`: `+clusterGroup.subscriptions[].channel+`
 
 |Teams and namespaces
 |`+variants/hub/values-hub.yaml+`: `+clusterGroup.namespaces+`
@@ -258,13 +300,13 @@ The default values of the Helm charts reflect the environment and use case in wh
 |GPU node labels and tolerations
 |`+charts/all/gpuaas+`: `+resourceFlavors[]+`
 
-|GPU type and ranges offered by the hardware profiles
+|GPU type and ranges offered by the HardwareProfiles
 |`+charts/all/gpuaas+`: `+hardwareProfiles.items[].identifiers[]+`
 
 |Models: URI, replicas, GPUs per replica and vLLM arguments
 |`+charts/all/llm-d+`: `+models.<model>+`
 
-|Endpoints and model identifiers of the router
+|MaaS endpoint and model identifiers used by the Smart Model Router
 |`+charts/all/smart-model-router+`: `+maas+`, `+models+` and `+classifier+`
 
 |Monitoring objects whose target workloads, namespaces or metrics services do not exist
@@ -272,14 +314,34 @@ The default values of the Helm charts reflect the environment and use case in wh
 
 |===
 
+The Operator channels declared in `+variants/hub/values-hub.yaml+` are default values for the pattern, not universal requirements.
+
+The Operator version installed on a target cluster is resolved from the configured subscription channel and the Operator catalog available to that cluster.
+
+Before changing an Operator channel, verify compatibility between the target OpenShift version, the selected Operator version, and the API versions and custom resources used by the pattern.
+
 [id="gpus-with-a-different-amount-of-memory"]
 === GPUs with a different amount of memory
 
-Kueue counts GPUs as devices, not gigabytes: the memory of a GPU does not appear in the queues. Whether a model fits depends on values of the `+llm-d+` chart: the number of GPUs per replica, the vLLM arguments (`+--tensor-parallel-size+`, `+--max-model-len+` and `+--gpu-memory-utilization+`) and the model itself (`+uri+`).
+Kueue counts GPUs as devices rather than gigabytes of GPU memory. GPU memory therefore does not appear directly in the queue quotas.
 
-The tested environment uses NVIDIA A30 GPUs. The GPU type displayed by the HardwareProfiles is configurable through the chart values and is not a requirement of the pattern.
+Whether a model fits on the available hardware depends on the `+llm-d+` chart configuration, including:
 
-As a rough guide, the weights of a model occupy about its number of parameters times the bytes per parameter (about 32 GB for a model of 32 billion parameters in FP8), plus the KV cache and some margin. With GPUs that have less memory, adapt together the GPUs per replica and the tensor parallelism, the maximum context length, or the model. If a model needs more GPUs per replica, review also the queue quotas and the maximum of the hardware profile.
+* the number of GPUs per replica;
+* `+--tensor-parallel-size+`;
+* `+--max-model-len+`;
+* `+--gpu-memory-utilization+`;
+* the model itself.
+
+The tested environment uses NVIDIA A30 GPUs. This is the hardware used for validation and is not a requirement of the pattern.
+
+The GPU type displayed by the HardwareProfiles is configurable through the chart values. GPU node selectors, quotas and model sizing must also be adapted to the actual target environment.
+
+As a rough guide, model weights require approximately the number of parameters multiplied by the number of bytes used per parameter, in addition to KV cache and runtime overhead.
+
+For GPUs with less memory, consider adapting the number of GPUs per replica, tensor parallelism, maximum context length or model size.
+
+If a model requires more GPUs per replica, also review the Kueue quotas and HardwareProfile maximum values.
 
 [id="technical-requirements"]
 == Technical requirements
@@ -290,7 +352,7 @@ Source code repository: https://github.com/acicrome/ai-optimization.git
 branch: validated-pattern
 ----
 
-The Helm configuration of the pattern is currently available in the `+validated-pattern+` branch of the repository. Use that branch until a dedicated location for the pattern is defined.
+The Helm-based Validated Pattern configuration is currently available in the `+validated-pattern+` branch.
 
 [id="tested-environments"]
 === Tested environments
@@ -313,7 +375,15 @@ The Helm configuration of the pattern is currently available in the `+validated-
 
 |===
 
-OpenShift 4.20 is within the OpenShift versions supported by the tested OpenShift AI environment.
+The versions and infrastructure listed above describe the environment in which the pattern was validated and are not fixed installation requirements.
+
+The pattern defines default Operator subscription channels in `+variants/hub/values-hub.yaml+`. These channels can be adapted to the target environment.
+
+The Operator version actually installed is resolved from the configured subscription channel and the Operator catalog available to the target cluster.
+
+Before deploying the pattern with different Operator channels or product versions, verify compatibility between the target OpenShift version, the selected Operators, and the API versions and custom resources used by the pattern.
+
+Similarly, NVIDIA A30 represents the GPU hardware used in the tested environment and is not a hardware requirement. GPU type, node labels, quotas, HardwareProfile settings and model sizing are configurable for the target environment.
 
 [id="network-requirements"]
 === Network requirements
@@ -322,23 +392,24 @@ For connected environments:
 
 . Access to public container registries.
 . Access to GitHub repositories.
-. Access to `+quay.io+`, from which `+pattern.sh+` pulls the container image of the framework, and to the Validated Patterns Helm chart repository (`+charts.validatedpatterns.io+`).
-. Access to the Operator catalogs required to install the Red Hat OpenShift AI and Red Hat build of Kueue Operators.
+. Access to `+quay.io+`, from which `+pattern.sh+` pulls the Validated Patterns framework container image.
+. Access to the Validated Patterns Helm chart repository at `+charts.validatedpatterns.io+`.
+. Access to the Operator catalogs required to install Red Hat OpenShift AI and Red Hat build of Kueue.
 
 [id="security-considerations"]
 === Security considerations
 
-* Do not commit passwords, access tokens, private keys or other secrets in plaintext.
+* Do not commit passwords, access tokens, private keys, MaaS API keys or other secrets in plaintext.
 * Manage credentials through Kubernetes/OpenShift Secrets or a dedicated secret-management solution.
 * Avoid hardcoding environment-specific hostnames, addresses and parameters when they can be managed through environment-specific configuration.
-* The charts do not render the MaaS API key Secret. The MaaS API key of the Smart Model Router is not provided in the repository: you create and manage it on your side, according to the model you use, and store it as a Secret outside Git.
+* The charts do not render the MaaS API key Secret. The Smart Model Router MaaS API key must be created and managed outside Git.
 
 [id="sizing-of-the-hub-cluster"]
 === Sizing of the hub cluster
 
 [cols="1,1",options="header"]
 |===
-|Resource |Value
+|Resource |Tested environment
 
 |Nodes
 |6
@@ -351,7 +422,9 @@ For connected environments:
 
 |===
 
-The sizing above describes the environment used to test the pattern and is not a fixed infrastructure requirement. GPU capacity, quotas and model sizing must be adapted to the target environment.
+The sizing above describes the environment used to test the pattern and is not a fixed infrastructure requirement.
+
+GPU capacity, quotas and model sizing must be adapted to the target environment.
 
 [id="consuming-a-pattern"]
 == Consuming a pattern
@@ -359,7 +432,7 @@ The sizing above describes the environment used to test the pattern and is not a
 .Procedure
 . Make sure that the OpenShift cluster and GPU infrastructure described in the prerequisites are available.
 . Install the OpenShift CLI, available at link:https://console.redhat.com/openshift/downloads[Red Hat OpenShift downloads], and Podman.
-. Log in to the OpenShift cluster. The `+KUBECONFIG+` file must be below your home directory, because `+pattern.sh+` mounts it into the container of the framework:
+. Log in to the OpenShift cluster. The `+KUBECONFIG+` file must be available below your home directory because `+pattern.sh+` mounts it into the Validated Patterns framework container.
 +
 [source,terminal]
 ----
@@ -367,57 +440,58 @@ $ oc login --token=<API token> --server=<API URL:6443>
 ----
 
 . From the pattern repository on GitHub, click the *Fork* button.
-. Clone the forked copy of the repository:
+. Clone the forked repository:
 +
 [source,terminal]
 ----
 $ git clone git@github.com:<your-github-user>/ai-optimization.git
 ----
 
-. Navigate to the root directory of your repository:
+. Navigate to the repository:
 +
 [source,terminal]
 ----
 $ cd /path/to/your/repository
 ----
 
-. Set the upstream repository. The `+-f+` option also fetches the branches of the upstream repository, including `+validated-pattern+`, which contains the Helm configuration of the pattern:
+. Set the upstream repository. The `+-f+` option also fetches the upstream branches, including `+validated-pattern+`.
 +
 [source,terminal]
 ----
 $ git remote add -f upstream https://github.com/acicrome/ai-optimization.git
 ----
 
-. Verify the setup of your remote repositories:
+. Verify the remote repositories:
 +
 [source,terminal]
 ----
 $ git remote -v
 ----
 
-. Create a working branch from the `+validated-pattern+` branch of the upstream repository:
+. Create a working branch from the upstream `+validated-pattern+` branch:
 +
 [source,terminal]
 ----
 $ git switch -c my-branch upstream/validated-pattern
 ----
 
-. Review the pattern values and adapt them to your environment (see <<adapting-the-pattern-to-your-environment,Adapting the pattern to your environment>>). In particular:
-* match the Kueue quotas, GPU node labels, queue namespaces and HardwareProfiles to the real capacity of the cluster;
-* adapt the GPU display name in the HardwareProfiles if you want it to reflect the GPU model available in the target environment;
-* replace the placeholder endpoints and model identifiers of the Smart Model Router (`+maas.url+`, `+models+` and `+classifier+` in the chart values);
-* configure the `+llm-d+` model values according to the model artifacts, number of GPUs per replica and serving configuration available in the target environment;
-* decide whether to enable the cluster-wide monitoring configuration of the `+gpuaas-monitoring+` chart: it updates the `+cluster-monitoring-config+` ConfigMap of `+openshift-monitoring+` and has a cluster-wide effect, so disable it if that configuration is managed elsewhere;
-* disable the observability objects whose target workloads, namespaces or metrics services do not exist.
+. Review the pattern values and adapt them to your environment. See <<adapting-the-pattern-to-your-environment,Adapting the pattern to your environment>>. In particular:
+* verify that the configured OpenShift AI and Kueue Operator channels are appropriate for the target OpenShift environment;
+* match Kueue quotas, GPU node labels, queue namespaces and HardwareProfiles to the real capacity of the cluster;
+* adapt the HardwareProfile GPU display name if required;
+* replace the placeholder MaaS endpoint and Smart Model Router model identifiers;
+* configure the `+llm-d+` model values according to the available model artifacts, GPU capacity and serving configuration;
+* decide whether to enable cluster-wide monitoring configuration through `+gpuaas-monitoring+`;
+* disable observability objects whose target workloads, namespaces or metrics services are not available in the target environment.
 
-. Optional: Validate the charts before the installation. The validation runs strict `+helm lint+` and `+helm template+` checks for the pattern charts.
+. Optional: Validate the charts before installation.
 +
 [source,terminal]
 ----
 $ ./pattern.sh make validate
 ----
 
-. Create the Secret with your MaaS API key, outside Git, in the `+smart-model-router+` namespace. The key is not provided in the repository: you create and manage it on your side, according to the model you use.
+. Create the Secret containing the MaaS API key outside Git in the `+smart-model-router+` namespace:
 +
 [source,terminal]
 ----
@@ -426,7 +500,7 @@ $ oc create secret generic smart-router-maas-credentials \
     --from-literal=MAAS_API_KEY='<api-key>'
 ----
 
-. Commit your environment-specific changes and push them to your fork:
+. Commit the environment-specific changes and push them to your fork:
 +
 [source,terminal]
 ----
@@ -435,7 +509,7 @@ $ git commit -m "Adapt the pattern values to my environment"
 $ git push -u origin my-branch
 ----
 
-. Install the pattern. The installation sets up {rh-gitops-short} (Argo CD) and the {validated-patterns-op}. The Validated Patterns framework manages the namespaces and installs the required Red Hat OpenShift AI and Red Hat build of Kueue Operators from the subscriptions declared in `+variants/hub/values-hub.yaml+`. The `+rhoai-config+` application then applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement.
+. Install the pattern. The installation sets up {rh-gitops-short} (Argo CD) and the {validated-patterns-op}. The Validated Patterns framework manages the declared namespaces and installs the required Red Hat OpenShift AI and Red Hat build of Kueue Operators from the subscriptions defined in `+variants/hub/values-hub.yaml+`. The `+rhoai-config+` application applies the OpenShift AI configuration required by the pattern, including Models as a Service enablement.
 +
 [source,terminal]
 ----
@@ -457,7 +531,7 @@ $ oc -n smart-model-router rollout status deployment/smart-model-router
 $ oc -n smart-model-router get pods,service,route
 ----
 
-A synchronized application does not guarantee admission or scheduling. Check the Kueue status and actual GPU availability before running workloads.
+A synchronized application does not guarantee workload admission or scheduling. Verify Kueue status and actual GPU availability before running workloads.
 
 [id="using-the-pattern-demo-use-case"]
 == Using the pattern: demo use case
@@ -470,37 +544,47 @@ image::request-flow.png[End-to-end request flow]
 *Request processing*
 
 . A user submits a request through the AI application.
-. The Smart Model Router classifies the request and selects the best model.
+. The Smart Model Router classifies the request and selects the most suitable model.
 . The request is routed through the Model as a Service endpoint.
-. llm-d optimizes the inference execution across the serving resources.
+. llm-d optimizes inference execution across the serving resources.
 . The selected model generates the response.
 . The response is returned to the user.
 
-The demo uses two answer models that are available through the MaaS endpoint: Qwen3-32B (FP8 variant) for complex requests and GPT-OSS-20B for simple requests. The Smart Model Router uses a Llama 3 8B Instruct classifier to choose between them.
+The demo uses Qwen3-32B for complex requests and GPT-OSS-20B for simple requests through the MaaS endpoint. The Smart Model Router uses a Llama 3 8B Instruct classifier to choose between the two answer models.
 
 *GPU resource management*
 
-* A shared GPU pool, provided by GPU as a Service, supports both inference and fine-tuning workloads.
-* Priority-based scheduling ensures inference performance for production workloads.
-* Fine-tuning jobs run at a lower priority and are safely preempted during resource contention.
-* Checkpointing enables automatic recovery and resumption of the training activities.
+* A shared GPU pool provided by GPU as a Service supports inference and fine-tuning workloads.
+* Priority-based scheduling gives inference workloads higher priority.
+* Fine-tuning jobs run at lower priority and can be preempted during resource contention.
+* Checkpointing enables recovery and resumption of fine-tuning activities.
 
 *Fine-tuning example*
 
-The `+training/+` directory contains a notebook that runs a distributed fine-tuning job from an OpenShift AI workbench with Kubeflow Trainer (`+TransformersTrainer+`). By default it fine-tunes a small model (`+Qwen/Qwen2.5-1.5B-Instruct+`) on a subset of 500 examples of the Stanford Alpaca dataset, with two training nodes of one GPU each, and it stores periodic and just-in-time checkpoints on a shared persistent volume. The job can be routed through a Kueue `+LocalQueue+` by setting the `+KUEUE_QUEUE_NAME+` environment variable. The notebook reads the cluster address and the token from environment variables and never stores them.
+The `+training/+` directory contains a notebook that runs a distributed fine-tuning job from an OpenShift AI workbench with Kubeflow Trainer (`+TransformersTrainer+`).
+
+By default, it fine-tunes `+Qwen/Qwen2.5-1.5B-Instruct+` on a subset of 500 examples from the Stanford Alpaca dataset, using two training nodes with one GPU each.
+
+The job stores periodic and just-in-time checkpoints on a shared persistent volume.
+
+The job can be routed through a Kueue `+LocalQueue+` by setting the `+KUEUE_QUEUE_NAME+` environment variable.
+
+The notebook reads the cluster address and token from environment variables and does not store them.
 
 *Benchmarking and evaluation*
 
-The project uses two complementary tools to evaluate the served models, Qwen3-32B and GPT-OSS-20B:
+The project uses two complementary tools to evaluate the served models:
 
-* *GuideLLM* measures serving performance under configurable load: request throughput, output-token throughput, time to first token, inter-token latency and behavior under concurrency.
-* *LM Evaluation Harness (`+lm-eval+`):* evaluates the quality of the models on selected tasks and datasets.
+* *GuideLLM* measures serving performance under configurable load, including request throughput, output-token throughput, time to first token, inter-token latency and concurrency behavior.
+* *LM Evaluation Harness (`+lm-eval+`):* evaluates model quality on selected tasks and datasets.
 
-Performance and quality results answer different questions, so they are reported separately. The `+benchmarking/+` directory documents the role of each tool and what to record for every run: model and revision, serving runtime, product versions and GPU configuration, workload and evaluation settings, timestamp and raw output, without credentials. Compare runs only when model, runtime, hardware and settings are sufficiently aligned. The documentation does not claim any particular performance or quality result.
+Performance and quality results answer different questions and should therefore be reported separately.
 
-*Observability*
+The `+benchmarking/+` directory documents what should be recorded for every run, including model and revision, serving runtime, product versions, GPU configuration, workload settings, evaluation settings, timestamp and raw output.
 
-Usage, performance and GPU metrics are visualized through Grafana dashboards: model performance, token consumption, API and request metrics, GPU utilization, training job status, and logging and audit.
+Credentials must not be included in benchmark artifacts.
+
+Runs should only be compared when model, runtime, hardware and settings are sufficiently aligned.
 
 [id="testing"]
 == Testing
@@ -512,28 +596,28 @@ Usage, performance and GPU metrics are visualized through Grafana dashboards: mo
 $ oc get subscriptions -A
 ----
 
-* *Verify the OpenShift AI configuration.* Confirm that `+default-dsci+` and `+default-dsc+` are present after the `+rhoai-config+` application synchronizes.
+* *Verify the OpenShift AI configuration.* Confirm that `+default-dsci+` and `+default-dsc+` are available after the `+rhoai-config+` application synchronizes.
 +
 [source,terminal]
 ----
 $ oc get datasciencecluster,dscinitialization
 ----
 
-* *Verify the Argo CD applications.* Confirm that the six applications are synchronized and healthy.
+* *Verify the Argo CD applications.* Confirm that all six applications are synchronized and healthy.
 +
 [source,terminal]
 ----
 $ oc get applications -A
 ----
 
-* *Validate the charts.* Run the local validation. It runs strict `+helm lint+` and `+helm template+` checks for the pattern charts.
+* *Validate the charts.* Run the pattern validation, which includes strict Helm linting and template rendering.
 +
 [source,terminal]
 ----
 $ ./pattern.sh make validate
 ----
 
-* *Verify the GPU as a Service configuration.* Confirm that the queues, ResourceFlavors and HardwareProfiles defined for your GPU structure exist and match the expected quotas and priorities.
+* *Verify the GPU as a Service configuration.* Confirm that the queues, ResourceFlavors and HardwareProfiles match the expected quotas, priorities and target GPU environment.
 +
 [source,terminal]
 ----
@@ -541,17 +625,20 @@ $ oc get clusterqueues
 $ oc get localqueues -A
 ----
 
-* *Verify capacity sharing and preemption.* The names below are those of the example configuration. Run the fine-tuning notebook of the `+training/+` directory with `+KUEUE_QUEUE_NAME+` set to the training queue (`+team-training+`) and confirm that the job can use borrowed GPUs. Then submit inference workloads in the `+team-inference+` namespace and confirm that the fine-tuning job is preempted when inference needs its guaranteed capacity, and that it resumes from its last checkpoint when GPUs become available.
+* *Verify capacity sharing and preemption.* Run the fine-tuning notebook from the `+training/+` directory with `+KUEUE_QUEUE_NAME+` set to `+team-training+`. Confirm that the workload can use borrowed GPU capacity. Then submit inference workloads in the `+team-inference+` namespace and verify that lower-priority fine-tuning workloads can be preempted when inference requires its guaranteed capacity and resume from the latest checkpoint when resources become available.
+
 * *Verify the end-to-end flow.* Submit a request through the AI application and confirm that the Smart Model Router selects a model and that the response is returned through MaaS and llm-d.
-* *Verify observability.* Open the Grafana dashboards and confirm that GPU utilization, token consumption, request metrics and training job status reflect the requests and jobs generated by the previous checks.
-* *Verify that Kueue accounts for the model deployments.* Check that the model workloads appear among the Kueue workloads and that they are charged to the expected queue.
+
+* *Verify observability.* Open the Grafana dashboards and confirm that GPU utilization, token consumption, request metrics and training job status reflect generated requests and workloads.
+
+* *Verify that Kueue accounts for model workloads.* Confirm that model workloads appear in Kueue and are associated with the expected queues.
 +
 [source,terminal]
 ----
 $ oc get workloads -A
 ----
 
-* *Verify the Smart Model Router.* Check the rollout, then call the `+/health+` endpoint through the generated Route and send one simple and one complex request. The `+router+` field of the response reports the route and the model that were selected.
+* *Verify the Smart Model Router.* Check its rollout and Route. Then send one simple request and one complex request and verify that the `+router+` field reports the expected route and selected model.
 +
 [source,terminal]
 ----
